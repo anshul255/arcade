@@ -1,0 +1,1918 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flowline — Setup that just works</title>
+<style>
+/* ============ Design tokens ============ */
+:root{
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --r-sm:6px; --r-md:10px; --r-lg:16px; --r-xl:22px;
+  --bg:#f6f8fa; --surface:#ffffff; --ink:#101828; --muted:#5d6b85; --faint:#8a97ad;
+  --brand:#4353ff; --brand-deep:#3240e8; --brand-soft:rgba(67,83,255,.10);
+  --success:#12a150; --danger:#e5484d; --amber:#f59e0b;
+  --hair:rgba(16,24,40,.09);
+  --sh-card:0 1px 2px rgba(16,24,40,.06), 0 4px 16px rgba(16,24,40,.07);
+  --sh-pop:0 2px 4px rgba(16,24,40,.08), 0 18px 44px -12px rgba(16,24,40,.25);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --ease-in:cubic-bezier(.7,0,.84,0);
+  --font:-apple-system,"SF Pro Text","Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{background:var(--bg); color:var(--ink); font-family:var(--font); font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased; height:100%}
+button{font-family:inherit; font-size:inherit; cursor:pointer; border:none; background:none; color:inherit}
+button:focus-visible, [tabindex]:focus-visible, a:focus-visible, input:focus-visible{
+  outline:none; box-shadow:0 0 0 4px rgba(67,83,255,.22), 0 0 0 1.5px var(--brand)}
+.force-ring{box-shadow:0 0 0 4px rgba(67,83,255,.22), 0 0 0 1.5px var(--brand) !important}
+::selection{background:rgba(67,83,255,.18)}
+
+/* ============ Shell ============ */
+#app{min-height:100vh; display:flex; flex-direction:column}
+header.top{display:flex; align-items:center; justify-content:space-between; gap:var(--s4);
+  padding:14px clamp(16px,4vw,36px); background:var(--surface); border-bottom:1px solid var(--hair)}
+.brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:17px; letter-spacing:-.02em}
+.brand .tm{font-size:9px; color:var(--faint); font-weight:500; align-self:flex-start; margin:2px 0 0 1px}
+.logo-mark{width:26px; height:26px; border-radius:8px; background:linear-gradient(135deg,var(--brand),#7a86ff);
+  display:grid; place-items:center; color:#fff; box-shadow:0 2px 6px rgba(67,83,255,.35)}
+.top-right{display:flex; align-items:center; gap:var(--s4); min-width:0}
+#chipName{max-width:14ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.est{font-size:13px; color:var(--muted); animation:estpulse 2.4s ease-in-out infinite}
+@keyframes estpulse{0%,100%{opacity:1} 50%{opacity:.7}}
+.chip{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted);
+  background:var(--bg); border:1px solid var(--hair); border-radius:999px; padding:4px 12px 4px 4px}
+.chip .avatar{width:22px; height:22px; border-radius:50%; background:linear-gradient(135deg,#c3c9ff,#8fa0ff);
+  color:#fff; font-size:11px; font-weight:700; display:grid; place-items:center}
+#muteBtn{width:32px; height:32px; border-radius:8px; display:grid; place-items:center; color:var(--muted)}
+#muteBtn:hover{background:var(--bg)}
+
+/* progress */
+.progress-zone{background:var(--surface); border-bottom:1px solid var(--hair);
+  padding:12px clamp(16px,4vw,36px) 14px}
+.progress-row{display:flex; align-items:center; gap:12px; max-width:820px; margin:0 auto}
+.ptrack{flex:1; height:8px; background:#e9edf3; border-radius:999px; overflow:hidden; position:relative}
+.pfill{height:100%; width:0%; border-radius:999px; background:linear-gradient(135deg,var(--brand),#7c7cf0);
+  transition:width 900ms cubic-bezier(.1,.9,.2,1); position:relative; overflow:hidden}
+.pfill.rollback{transition:width 1400ms var(--ease-spring)}
+.pfill::after{content:""; position:absolute; inset:0; background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);
+  background-size:250% 100%; animation:shimmer 3s ease infinite}
+@keyframes shimmer{0%{background-position:120% 0} 100%{background-position:-120% 0}}
+.ppct{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:12.5px; color:var(--muted); min-width:38px; text-align:right}
+.stepper{display:flex; gap:6px; justify-content:center; margin-top:10px}
+.stepper .dot{width:8px; height:8px; border-radius:50%; background:#dde3ec; transition:all 300ms var(--ease-out)}
+.stepper .dot.done{background:var(--success)}
+.stepper .dot.cur{background:var(--brand); transform:scale(1.35)}
+.stepper .dot.undone{animation:undot 500ms var(--ease-spring)}
+@keyframes undot{0%{transform:scale(1.5); background:var(--success)} 100%{transform:scale(1)}}
+
+/* main card */
+main{flex:1; display:flex; align-items:flex-start; justify-content:center; padding:clamp(20px,5vh,56px) 16px 24px}
+#card{width:100%; max-width:620px; background:var(--surface); border:1px solid var(--hair);
+  border-radius:var(--r-lg); box-shadow:var(--sh-card); position:relative; overflow:hidden;
+  transition:height 320ms var(--ease-out)}
+#card.impatient{animation:cardshake 400ms cubic-bezier(.36,.07,.19,.97)}
+.pane{padding:clamp(22px,4.5vw,36px)}
+.pane.exit{position:absolute; inset:0; padding:clamp(22px,4.5vw,36px);
+  animation:paneout 200ms var(--ease-in) forwards}
+.pane.enter > .stg{opacity:0; transform:translateY(8px);
+  animation:stagin 380ms var(--ease-out) forwards; animation-delay:calc(var(--i,0)*60ms + 60ms)}
+@keyframes paneout{to{opacity:0; transform:translateX(-24px)}}
+@keyframes stagin{to{opacity:1; transform:none}}
+.kicker{font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--brand); margin-bottom:6px}
+h1.title{font-size:clamp(20px,3.2vw,25px); font-weight:650; letter-spacing:-.02em; text-wrap:balance; margin-bottom:6px}
+p.sub{color:var(--muted); margin-bottom:var(--s5); max-width:52ch}
+.fineprint{font-size:11.5px; color:var(--faint); margin-top:var(--s4)}
+
+/* footer inside card */
+.cfoot{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:var(--s6);
+  padding-top:var(--s4); border-top:1px solid var(--hair)}
+.cfoot.swap{flex-direction:row-reverse}
+.grow{flex:1}
+
+/* buttons */
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 22px;
+  border-radius:var(--r-md); font-weight:600; font-size:14px; position:relative;
+  transition:transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background 150ms, opacity 200ms;
+  user-select:none; -webkit-user-select:none; touch-action:manipulation}
+.btn-primary{background:var(--brand); color:#fff; box-shadow:0 1px 2px rgba(67,83,255,.3)}
+.btn-primary:hover{transform:translateY(-1px); box-shadow:0 5px 16px rgba(67,83,255,.38); background:var(--brand-deep)}
+.btn-primary:active{transform:translateY(0) scale(.97); transition-duration:70ms}
+.btn-green{background:var(--success); color:#fff; box-shadow:0 1px 2px rgba(18,161,80,.3)}
+.btn-green:hover{transform:translateY(-1px); box-shadow:0 5px 16px rgba(18,161,80,.38)}
+.btn-green:active{transform:scale(.97)}
+.btn-ghost{border:1px solid var(--hair); color:var(--muted); background:var(--surface)}
+.btn-ghost:hover{background:var(--bg); color:var(--ink)}
+.btn-ghost:active{transform:scale(.97)}
+.btn[disabled]{opacity:.45; cursor:not-allowed; pointer-events:none}
+.btn.dim{opacity:.4}
+.shame{font-size:12px; color:#98a2b3; text-decoration:underline; background:none; display:inline-block; margin-top:var(--s4)}
+.shame:hover{color:var(--muted)}
+.shame.pulse{animation:shamepulse 2s ease-in-out infinite}
+@keyframes shamepulse{0%,100%{opacity:.6} 50%{opacity:1}}
+
+/* shake */
+@keyframes cardshake{10%{transform:translateX(-8px)} 25%{transform:translateX(7px)} 40%{transform:translateX(-5px)}
+  55%{transform:translateX(4px)} 70%{transform:translateX(-2px)} 85%{transform:translateX(1px)} 100%{transform:none}}
+.shake{animation:cardshake 400ms cubic-bezier(.36,.07,.19,.97)}
+.flash-red{animation:flashred 400ms ease}
+@keyframes flashred{0%{box-shadow:0 0 0 4px rgba(229,72,77,.25), 0 0 0 1.5px var(--danger)} 100%{box-shadow:none}}
+
+/* meta strip */
+.meta-strip{display:flex; flex-wrap:wrap; justify-content:center; gap:6px 28px; padding:10px 16px;
+  font-size:12.5px; color:var(--muted); border-top:1px solid var(--hair); background:var(--surface)}
+.meta-strip b{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600; color:var(--ink)}
+#failCount.bump{animation:bump 180ms var(--ease-spring)}
+@keyframes bump{50%{transform:scale(1.35); color:var(--amber)}}
+.blinkc{animation:blinkc 1s steps(2,start) infinite}
+@keyframes blinkc{50%{opacity:0}}
+
+/* trust footer */
+.trust{padding:18px clamp(16px,4vw,36px) 26px; display:flex; flex-direction:column; align-items:center; gap:10px;
+  color:var(--faint); font-size:12.5px; text-align:center}
+.trust .stars{color:var(--amber); letter-spacing:2px}
+.trust .badges{display:flex; gap:18px; flex-wrap:wrap; justify-content:center}
+.trust .badge{display:flex; align-items:center; gap:6px}
+.trust q{font-style:italic}
+
+/* toasts */
+#toasts{position:fixed; top:16px; right:16px; display:flex; flex-direction:column; gap:10px; z-index:900; max-width:min(360px,calc(100vw - 32px))}
+.toast{background:var(--surface); border:1px solid var(--hair); border-left:3px solid var(--brand);
+  border-radius:var(--r-md); box-shadow:var(--sh-pop); padding:12px 16px; font-size:13.5px; color:var(--ink);
+  animation:toastin 320ms var(--ease-out)}
+.toast.err{border-left-color:var(--danger)}
+.toast.ok{border-left-color:var(--success)}
+.toast.out{animation:toastout 250ms var(--ease-in) forwards}
+@keyframes toastin{from{opacity:0; transform:translateX(24px)}}
+@keyframes toastout{to{opacity:0; transform:translateX(24px)}}
+
+/* saved flash (email step gaslight) */
+.savedflash{position:absolute; top:14px; right:16px; background:rgba(18,161,80,.12); color:var(--success);
+  font-size:12px; font-weight:600; border-radius:999px; padding:3px 10px; opacity:0; pointer-events:none}
+.savedflash.on{animation:savedflash 300ms ease}
+@keyframes savedflash{0%{opacity:0} 30%{opacity:1} 100%{opacity:0}}
+
+/* ============ Step-specific ============ */
+/* dodge playfield */
+.playfield{position:relative; height:190px; border:1px dashed var(--hair); border-radius:var(--r-md);
+  background:linear-gradient(180deg,rgba(67,83,255,.025),transparent); margin-top:var(--s3)}
+.playfield .btn{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  transition:left 150ms var(--ease-out), top 150ms var(--ease-out), transform 150ms var(--ease-out)}
+
+/* terms */
+.termsbox{position:relative; margin-top:var(--s2)}
+.terms{height:230px; overflow-y:auto; border:1px solid var(--hair); border-radius:var(--r-md);
+  padding:16px 18px; font-size:13px; color:#3c4658; background:#fcfdfe}
+.terms h3{font-size:12.5px; margin:14px 0 4px; color:var(--ink)}
+.terms p{margin-bottom:8px}
+.tldr{position:absolute; top:8px; right:20px; font-size:11px; font-weight:600; background:var(--surface);
+  border:1px solid var(--hair); border-radius:999px; padding:3px 10px; color:var(--brand); box-shadow:var(--sh-card)}
+.readbar{height:3px; background:#e9edf3; border-radius:999px; margin-top:8px; overflow:hidden}
+.readbar i{display:block; height:100%; width:0%; background:var(--brand); border-radius:999px; transition:width 150ms linear}
+
+/* checkbox */
+.checkrow{display:flex; align-items:center; gap:14px; padding:18px; border:1px solid var(--hair);
+  border-radius:var(--r-md); margin-top:var(--s3); user-select:none; -webkit-user-select:none;
+  cursor:pointer; touch-action:manipulation; position:relative; background:#fcfdfe}
+.cbwrap{position:relative; width:34px; height:34px; display:grid; place-items:center; flex:none}
+.cbox{width:22px; height:22px; border-radius:5px; border:1.5px solid #c3ccd9; background:#fff;
+  display:grid; place-items:center; transition:background 120ms, border-color 120ms}
+.cbox svg{width:14px; height:14px}
+.cbox svg path{stroke:#fff; stroke-width:2.6; fill:none; stroke-linecap:round; stroke-linejoin:round;
+  stroke-dasharray:22; stroke-dashoffset:22}
+.checkrow.checked .cbox{background:var(--brand); border-color:var(--brand)}
+.checkrow.checked .cbox svg path{transition:stroke-dashoffset 200ms var(--ease-out) 60ms; stroke-dashoffset:0}
+.checkrow.checked .cbwrap{animation:cbspring 220ms var(--ease-spring)}
+@keyframes cbspring{0%{transform:scale(.9)} 55%{transform:scale(1.1)} 100%{transform:scale(1)}}
+.holdring{position:absolute; inset:-2px; pointer-events:none}
+.holdring circle{fill:none; stroke:var(--brand); stroke-width:2.5; stroke-linecap:round;
+  stroke-dasharray:120; stroke-dashoffset:120; opacity:0}
+.holdring.holding circle{opacity:.9; transition:stroke-dashoffset 1.2s linear}
+.checkrow.locked .cbox{background:var(--success); border-color:var(--success)}
+
+/* slider */
+.sliderzone{margin:26px 4px 8px; user-select:none; -webkit-user-select:none}
+.slidereadout{text-align:center; font-family:var(--mono); font-variant-numeric:tabular-nums;
+  font-size:34px; font-weight:600; margin-bottom:18px; color:var(--ink); transition:color 150ms}
+.slidereadout.at50{color:var(--success)}
+.sliderrow{display:flex; align-items:center; gap:12px}
+.stepbtn{width:34px; height:34px; flex:none; border-radius:8px; border:1px solid var(--hair);
+  font-size:18px; color:var(--muted); background:var(--surface); display:grid; place-items:center}
+.stepbtn:active{transform:scale(.94)}
+.strack{position:relative; flex:1; height:8px; background:#e9edf3; border-radius:999px; cursor:pointer;
+  touch-action:none; outline-offset:8px}
+.sfill{position:absolute; left:0; top:0; bottom:0; background:linear-gradient(90deg,var(--brand),#7c7cf0);
+  border-radius:999px; width:35%}
+.sthumb{position:absolute; top:50%; width:26px; height:26px; border-radius:50%; background:#fff;
+  border:1.5px solid var(--hair); box-shadow:0 2px 8px rgba(16,24,40,.18); transform:translate(-50%,-50%); left:35%}
+.strack.repel .sthumb, .strack.repel .sfill{transition:left 120ms var(--ease-out), width 120ms var(--ease-out)}
+
+/* name input */
+.field{margin-top:var(--s3); position:relative}
+.field input{width:100%; height:46px; border:1px solid var(--hair); border-radius:var(--r-sm);
+  padding:0 96px 0 14px; font-size:15px; background:#fff; caret-color:var(--brand);
+  transition:border-color 120ms, box-shadow 120ms}
+.field input:focus{border-color:var(--brand); outline:none; box-shadow:0 0 0 4px rgba(67,83,255,.16)}
+.aipill{position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:11px; font-weight:600;
+  border-radius:999px; padding:4px 10px; background:linear-gradient(135deg,#eef0ff,#e4e8ff); color:var(--brand);
+  border:1px solid rgba(67,83,255,.25)}
+.aipill.off{background:#f1f3f6; color:var(--faint); border-color:var(--hair)}
+.aipill.glow{animation:aiglow 1.6s ease-in-out infinite}
+@keyframes aiglow{0%,100%{box-shadow:0 0 0 0 rgba(67,83,255,0)} 50%{box-shadow:0 0 0 6px rgba(67,83,255,.18)}}
+.sparkle{animation:sparkle 300ms ease}
+@keyframes sparkle{30%{background:#f4f5ff}}
+
+/* email step */
+.emailrow{display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--hair);
+  border-radius:var(--r-md); padding:16px 18px; margin-top:var(--s3); background:#fcfdfe; flex-wrap:wrap}
+.emailrow .addr{font-family:var(--mono); font-size:14px}
+.spinner{width:16px; height:16px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff;
+  border-radius:50%; animation:spin 700ms linear infinite}
+.spinner.dark{border-color:rgba(67,83,255,.25); border-top-color:var(--brand)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* captcha */
+.captcha{border:1px solid var(--hair); border-radius:var(--r-md); overflow:hidden; margin-top:var(--s3); background:#fff}
+.captcha-head{background:var(--brand); color:#fff; padding:14px 16px; font-size:13.5px}
+.captcha-head b{display:block; font-size:15px; margin-top:2px}
+.cgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:10px; position:relative}
+.ctile{position:relative; aspect-ratio:1; border-radius:4px; overflow:hidden; cursor:pointer; background:#eef1f5}
+.ctile canvas{width:100%; height:100%; display:block}
+.ctile.sel::after{content:"✓"; position:absolute; top:4px; left:4px; width:20px; height:20px; background:var(--brand);
+  color:#fff; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700}
+.ctile.sel{outline:3px solid var(--brand); outline-offset:-3px}
+.captcha-foot{display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-top:1px solid var(--hair)}
+.cicon{width:34px; height:34px; border-radius:8px; display:grid; place-items:center; color:var(--muted)}
+.cicon:hover{background:var(--bg)}
+.cveil{position:absolute; inset:0; background:rgba(255,255,255,.7); display:grid; place-items:center; z-index:2}
+
+/* plans */
+.plans{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:var(--s3)}
+.plan{border:1px solid var(--hair); border-radius:var(--r-md); padding:18px 16px; display:flex;
+  flex-direction:column; gap:8px; position:relative; background:#fcfdfe}
+.plan.hot{border-color:rgba(67,83,255,.45); box-shadow:0 0 0 1px rgba(67,83,255,.25), var(--sh-card)}
+.plan .tag{position:absolute; top:-9px; left:50%; transform:translateX(-50%); background:var(--brand); color:#fff;
+  font-size:10px; font-weight:700; letter-spacing:.05em; padding:2px 10px; border-radius:999px; white-space:nowrap}
+.plan h3{font-size:15px}
+.plan .price{font-size:22px; font-weight:700; letter-spacing:-.02em}
+.plan .price small{font-size:12px; color:var(--faint); font-weight:500}
+.plan ul{list-style:none; font-size:12.5px; color:var(--muted); flex:1; display:flex; flex-direction:column; gap:4px}
+.plan ul li::before{content:"✓ "; color:var(--success)}
+.plan .btn{width:100%; height:38px; font-size:13px;
+  background:linear-gradient(135deg,var(--brand),#6d7aff); color:#fff}
+.plan .btn:active{transform:scale(.97)}
+.plan .btn.gone{background:#eef0f4; color:var(--faint); pointer-events:none}
+@media (max-width:700px){.plans{grid-template-columns:1fr}}
+
+/* review */
+.review{border:1px solid var(--hair); border-radius:var(--r-md); margin-top:var(--s3); overflow:hidden}
+.review .row{display:flex; justify-content:space-between; gap:14px; padding:12px 16px; font-size:13.5px}
+.review .row:nth-child(odd){background:#fafbfc}
+.review .row .k{color:var(--muted)}
+.review .row .v{font-weight:600; text-align:right}
+.ringhint{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12.5px; color:var(--brand); font-weight:600}
+.ringhint .arr{display:inline-block; animation:arrbob 900ms ease-in-out infinite}
+@keyframes arrbob{50%{transform:translateX(6px)}}
+
+/* cookie banner */
+#cookiewrap{position:fixed; left:0; right:0; bottom:0; z-index:800; display:flex; flex-direction:column;
+  align-items:center; gap:10px; padding:0 16px 16px; pointer-events:none}
+.cookie{pointer-events:auto; width:100%; max-width:680px; background:var(--surface); border:1px solid var(--hair);
+  border-radius:var(--r-lg); box-shadow:var(--sh-pop); padding:18px 20px;
+  animation:cookiein 420ms var(--ease-out)}
+.cookie.bye{animation:cookieout 300ms var(--ease-in) forwards}
+@keyframes cookiein{from{opacity:0; transform:translateY(40px)}}
+@keyframes cookieout{to{opacity:0; transform:translateY(40px)}}
+.cookie h4{font-size:14.5px; margin-bottom:4px}
+.cookie p{font-size:12.5px; color:var(--muted); margin-bottom:12px}
+.cookie .rowb{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.cookie .btn{height:38px; font-size:13px; padding:0 16px}
+.cookie .mgr{font-size:12px; color:var(--faint); text-decoration:underline; margin-left:auto}
+.cookie .tgl{display:flex; justify-content:space-between; align-items:center; padding:7px 0; font-size:13px; border-bottom:1px solid var(--hair)}
+.cookie .tgl small{color:var(--success); font-size:10.5px; opacity:0; transition:opacity 200ms}
+.cookie .tgl small.on{opacity:1}
+.switch{width:36px; height:21px; border-radius:999px; background:var(--success); position:relative; transition:background 200ms; flex:none}
+.switch::after{content:""; position:absolute; top:2px; left:17px; width:17px; height:17px; border-radius:50%;
+  background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:left 200ms var(--ease-out)}
+.switch.offs{background:#cdd5e0}
+.switch.offs::after{left:2px}
+
+/* modal */
+#ovl{position:fixed; inset:0; z-index:850; display:none; align-items:center; justify-content:center; padding:20px}
+#ovl.on{display:flex}
+#ovl .back{position:absolute; inset:0; background:rgba(16,24,40,.45); backdrop-filter:blur(5px) saturate(1.2);
+  animation:fadein 250ms ease}
+@keyframes fadein{from{opacity:0}}
+.dialog{position:relative; background:var(--surface); border-radius:var(--r-xl); box-shadow:var(--sh-pop);
+  width:100%; max-width:420px; padding:26px; animation:dlgin 220ms var(--ease-out)}
+@keyframes dlgin{from{opacity:0; transform:scale(.96) translateY(8px)}}
+.dialog h3{font-size:17px; letter-spacing:-.01em; margin-bottom:6px; padding-right:24px}
+.dialog p{font-size:13.5px; color:var(--muted); margin-bottom:18px}
+.dialog .rowb{display:flex; gap:10px; justify-content:flex-end}
+.dialog .rowb.swapped{flex-direction:row-reverse; justify-content:flex-start}
+.dialog .x{position:absolute; top:14px; right:14px; width:30px; height:30px; border-radius:8px;
+  display:grid; place-items:center; color:var(--faint); font-size:16px}
+.dialog .x:hover{background:var(--bg); color:var(--ink)}
+.bigbar{height:8px; background:#e9edf3; border-radius:999px; overflow:hidden; margin:8px 0 4px}
+.bigbar i{display:block; height:100%; width:0%; background:linear-gradient(135deg,var(--brand),#7c7cf0); border-radius:999px}
+.bigbar.danger i{background:var(--danger)}
+.smallnote{font-size:11px; color:var(--faint); text-align:center}
+
+/* restore stamp */
+.stamp{position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:5; display:flex; align-items:center;
+  gap:8px; background:rgba(18,161,80,.1); color:var(--success); border:1px solid rgba(18,161,80,.3);
+  font-size:12px; font-weight:700; border-radius:999px; padding:5px 14px; white-space:nowrap;
+  animation:stampin 300ms var(--ease-spring)}
+.stamp.bad{background:rgba(229,72,77,.08); color:var(--danger); border-color:rgba(229,72,77,.3)}
+@keyframes stampin{from{opacity:0; transform:translateX(-50%) scale(.8)}}
+.stamp .ring{width:12px; height:12px; border-radius:50%; border:2px solid rgba(18,161,80,.3);
+  border-top-color:var(--success); animation:spin 1.2s linear infinite}
+#card.frozen::before{content:""; position:absolute; inset:0; z-index:4; background:rgba(255,255,255,.25)}
+
+/* updates screen */
+#updates{position:fixed; inset:0; z-index:950; background:#0b1e3b; color:#dbe5f5; display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:18px; text-align:center; padding:24px}
+#updates.on{display:flex}
+#updates .bigspin{width:44px; height:44px; border:3px solid rgba(255,255,255,.15); border-top-color:#fff;
+  border-radius:50%; animation:spin 900ms linear infinite}
+#updates h2{font-size:clamp(18px,3vw,24px); font-weight:600}
+#updates .ubar{width:min(420px,80vw); height:6px; background:rgba(255,255,255,.12); border-radius:999px; overflow:hidden}
+#updates .ubar i{display:block; height:100%; width:0%; background:#fff; border-radius:999px;
+  transition:width 8s cubic-bezier(.1,.9,.15,1)}
+#updates .ucount{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:13px; color:#8fa5c9}
+#updates .skip{position:absolute; bottom:36px; left:0; right:0; font-size:13px; color:#fff; opacity:0;
+  transition:opacity 2s ease; pointer-events:none}
+#updates .skip.vis{opacity:.09}
+
+/* victory / interstitials */
+.congrats{position:fixed; inset:0; z-index:940; background:var(--bg); display:none; align-items:center;
+  justify-content:flex-start; flex-direction:column; gap:14px; text-align:center; padding:24px; overflow-y:auto}
+.congrats.on{display:flex}
+.congrats > *{flex-shrink:0}
+.congrats > :first-child{margin-top:auto}
+.congrats > :last-child{margin-bottom:auto}
+.bigcheck{width:84px; height:84px; border-radius:50%; background:var(--success); color:#fff; display:grid;
+  place-items:center; box-shadow:0 12px 40px rgba(18,161,80,.4); animation:cbspring 400ms var(--ease-spring)}
+.cert{background:var(--surface); border:1px solid var(--hair); border-radius:var(--r-lg); box-shadow:var(--sh-pop);
+  max-width:520px; width:100%; padding:clamp(24px,5vw,44px); text-align:center; position:relative; overflow:hidden}
+.cert::before{content:""; position:absolute; inset:10px; border:1.5px solid rgba(67,83,255,.25); border-radius:12px; pointer-events:none}
+.cert .seal{width:58px; height:58px; margin:0 auto 14px; border-radius:50%;
+  background:linear-gradient(135deg,var(--brand),#7a86ff); color:#fff; display:grid; place-items:center;
+  box-shadow:0 6px 18px rgba(67,83,255,.4)}
+.cert h2{font-size:21px; letter-spacing:-.01em; margin-bottom:2px}
+.cert .certname{font-size:26px; font-weight:700; margin:12px 0 2px; letter-spacing:-.02em}
+.cert .stats{display:flex; justify-content:center; gap:30px; margin:18px 0}
+.cert .stats div b{display:block; font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:22px}
+.cert .stats div span{font-size:11px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em}
+.cert p{font-size:12.5px; color:var(--muted); margin-bottom:6px}
+.cert .sig{margin-top:14px; font-size:11.5px; color:var(--faint); font-style:italic}
+
+#confetti{position:fixed; inset:0; z-index:990; pointer-events:none}
+.tooltipbubble{position:absolute; z-index:6; background:var(--ink); color:#fff; font-size:12px; border-radius:8px;
+  padding:8px 12px; box-shadow:var(--sh-pop); max-width:240px; animation:dlgin 200ms var(--ease-out)}
+
+@media (max-width:620px){
+  .est{display:none}
+  .trust .quotes{display:none}
+  .cert .stats{gap:18px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important; transition-duration:80ms !important}
+  .pfill::after{display:none}
+  /* the hold ring paces a real 1.2s hold — it must not lie under reduced motion */
+  .holdring.holding circle{transition-duration:1.2s !important}
+}
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <span class="logo-mark">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h11M4 18h7" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>
+      </span>
+      Flowline<span class="tm">™</span>
+    </div>
+    <div class="top-right">
+      <span class="est" id="est" title="Estimate provided by our award-winning ML model.">Estimated time remaining: 2 minutes</span>
+      <button id="muteBtn" aria-label="Toggle sound">
+        <svg id="sndOn" width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg id="sndOff" width="17" height="17" viewBox="0 0 24 24" fill="none" style="display:none"><path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/><path d="m16 9 5 5m0-5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <div class="chip"><span class="avatar" id="avatarTxt">G</span><span id="chipName">Guest</span></div>
+    </div>
+  </header>
+
+  <div class="progress-zone">
+    <div class="progress-row">
+      <div class="ptrack"><div class="pfill" id="pfill"></div></div>
+      <span class="ppct" id="ppct">0%</span>
+    </div>
+    <div class="stepper" id="stepper"></div>
+  </div>
+
+  <main><div id="card"></div></main>
+
+  <div class="meta-strip">
+    <span>Attempts: <b id="failCount">0</b> <span style="color:var(--faint)">(we call them learning moments)</span></span>
+    <span>Time you will never get back: <b id="wasteT">0<span class="blinkc">:</span>00</b></span>
+  </div>
+
+  <footer class="trust">
+    <div class="badges">
+      <span class="badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z" stroke="currentColor" stroke-width="2"/></svg> Bank-grade encryption. The bank has asked not to be named.</span>
+      <span class="badge">SOC 2 compliant (self-assessed, 2019)</span>
+    </div>
+    <div><span class="stars">★★★★★</span> 4.9 — from the reviews we kept</div>
+    <div class="quotes"><q>Setup was so fast I barely remember consenting.</q> — Derek P., Verified Human &nbsp;·&nbsp; <q>I have never felt more valued as a data point.</q> — Sandra M., Power User</div>
+  </footer>
+</div>
+
+<div id="toasts"></div>
+<div id="cookiewrap"></div>
+<div id="ovl"><div class="back"></div></div>
+<div id="updates">
+  <div class="bigspin"></div>
+  <h2>Installing personalization updates</h2>
+  <div style="font-size:13px;color:#8fa5c9">Do not close this tab. Do not look away. Definitely do not press anything.</div>
+  <div class="ubar"><i id="ubarFill"></i></div>
+  <div class="ucount" id="ucount">Update 1 of 3,741</div>
+  <div class="skip" id="skipHint">Press any key to skip</div>
+</div>
+<div class="congrats" id="congrats">
+  <div class="bigcheck"><svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M5 12.5 10 17.5 19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <h1 class="title" style="font-size:28px">Congratulations!</h1>
+  <p class="sub" style="margin:0">Setup complete. Welcome aboard.</p>
+</div>
+<div class="congrats" id="victory"></div>
+<canvas id="confetti"></canvas>
+
+<script>
+'use strict';
+/* =====================================================================
+   FLOWLINE™ — Setup that just works.
+   A rage-bait onboarding wizard. Every step is beatable in seconds
+   once you know the trick. The tricks lie to your eyes and habits,
+   never to your inputs.
+   ===================================================================== */
+
+const $  = (s, el) => (el || document).querySelector(s);
+const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch (err) {} };
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const COARSE = matchMedia('(pointer: coarse)').matches;
+
+/* ---------------- state ---------------- */
+const TOTAL = 10;
+const S = {
+  step: 0, fails: 0, failsBy: {}, name: '', email: '', plan: 'Limited (your choice)',
+  robot: false, emailClicks: 0, emailOk: false, cookieDone: false, rewindDone: false,
+  startT: 0, done: false, milestonesHit: {},
+};
+let LS = {};
+try { LS = JSON.parse(localStorage.getItem('flowline_stats') || '{}'); } catch (e) {}
+const saveLS = () => { try { localStorage.setItem('flowline_stats', JSON.stringify(LS)); } catch (e) {} };
+
+/* ---------------- step-scoped timers ---------------- */
+const stepTimers = new Set();
+function after(ms, fn) { const id = setTimeout(() => { stepTimers.delete(id); fn(); }, ms); stepTimers.add(id); return id; }
+function every(ms, fn) { const id = setInterval(fn, ms); stepTimers.add(id); return id; }
+function killTimer(id) { clearTimeout(id); clearInterval(id); stepTimers.delete(id); }
+function clearStepTimers() { stepTimers.forEach(id => { clearTimeout(id); clearInterval(id); }); stepTimers.clear(); }
+const stepCleanups = [];
+function onLeave(fn) { stepCleanups.push(fn); }
+function runCleanups() { while (stepCleanups.length) { try { stepCleanups.pop()(); } catch (e) {} } }
+
+/* ---------------- audio ---------------- */
+const AU = { ctx: null, muted: !!LS.muted };
+function ac() {
+  if (!AU.ctx) { try { AU.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
+  return AU.ctx;
+}
+function env(g, t, peak, dur) {
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+}
+let lastTick = 0;
+function sTick() {
+  if (AU.muted) return; const c = ac(); if (!c) return;
+  const now = performance.now(); if (now - lastTick < 40) return; lastTick = now;
+  const t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+  o.type = 'triangle'; o.frequency.value = 1900;
+  env(g, t, 0.08, 0.05); o.connect(g).connect(c.destination); o.start(t); o.stop(t + 0.07);
+}
+function sChime() {
+  if (AU.muted) return; const c = ac(); if (!c) return;
+  [[880, 0], [1318.5, 0.09]].forEach(([f, d]) => {
+    const t = c.currentTime + d, o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    env(g, t, 0.11, 0.4); o.connect(g).connect(c.destination); o.start(t); o.stop(t + 0.5);
+  });
+}
+function sThud() {
+  if (AU.muted) return; const c = ac(); if (!c) return;
+  const t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(160, t);
+  o.frequency.exponentialRampToValueAtTime(60, t + 0.12);
+  env(g, t, 0.17, 0.16); o.connect(g).connect(c.destination); o.start(t); o.stop(t + 0.18);
+}
+function sWhoosh() {
+  if (AU.muted) return; const c = ac(); if (!c) return;
+  const t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(380, t);
+  o.frequency.exponentialRampToValueAtTime(120, t + 0.3);
+  env(g, t, 0.11, 0.45); o.connect(g).connect(c.destination); o.start(t); o.stop(t + 0.5);
+}
+function sPop() {
+  if (AU.muted) return; const c = ac(); if (!c) return;
+  const t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(620, t);
+  o.frequency.exponentialRampToValueAtTime(340, t + 0.08);
+  env(g, t, 0.12, 0.1); o.connect(g).connect(c.destination); o.start(t); o.stop(t + 0.12);
+}
+function sWomp() {
+  if (AU.muted) return; const c = ac(); if (!c) return;
+  const t = c.currentTime;
+  const o = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain();
+  const lfo = c.createOscillator(), lfoG = c.createGain();
+  o.type = 'sawtooth'; lp.type = 'lowpass'; lp.frequency.value = 1100; lp.Q.value = 4;
+  o.frequency.setValueAtTime(233, t); o.frequency.setValueAtTime(220, t + 0.25);
+  o.frequency.setValueAtTime(207, t + 0.5); o.frequency.setValueAtTime(196, t + 0.75);
+  o.frequency.exponentialRampToValueAtTime(150, t + 1.45);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.13, t + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+  lfo.frequency.value = 5.5; lfoG.gain.value = 0.045;
+  lfo.connect(lfoG).connect(g.gain);
+  o.connect(lp).connect(g).connect(c.destination);
+  o.start(t); lfo.start(t); o.stop(t + 1.55); lfo.stop(t + 1.55);
+}
+document.addEventListener('pointerdown', () => ac(), { once: true, capture: true });
+$('#muteBtn').addEventListener('click', () => {
+  AU.muted = !AU.muted; LS.muted = AU.muted; saveLS();
+  $('#sndOn').style.display = AU.muted ? 'none' : '';
+  $('#sndOff').style.display = AU.muted ? '' : 'none';
+  if (!AU.muted) sTick();
+});
+if (AU.muted) { $('#sndOn').style.display = 'none'; $('#sndOff').style.display = ''; }
+
+/* ---------------- toasts ---------------- */
+function toast(msg, opts = {}) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (opts.type ? ' ' + opts.type : '');
+  t.textContent = msg;
+  $('#toasts').appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 260); }, opts.ms || 3600);
+  while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
+  return t;
+}
+
+/* ---------------- confetti ---------------- */
+const CF = { parts: [], raf: 0, cv: $('#confetti'), cx: null };
+function confetti(x, y, n = 80) {
+  if (RM) return;
+  const cv = CF.cv;
+  cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio;
+  cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+  CF.cx = cv.getContext('2d'); CF.cx.scale(devicePixelRatio, devicePixelRatio);
+  const colors = ['#4353ff', '#12a150', '#f59e0b', '#ec4899', '#7c7cf0'];
+  for (let i = 0; i < n; i++) {
+    CF.parts.push({
+      x, y, vx: (Math.random() - 0.5) * 9, vy: -(5 + Math.random() * 6),
+      w: 5 + Math.random() * 5, h: 7 + Math.random() * 4,
+      c: colors[i % colors.length], a: Math.random() * Math.PI, av: (Math.random() - 0.5) * 0.4,
+      life: 120, o: 1,
+    });
+  }
+  if (!CF.raf) cfLoop();
+}
+function cfLoop() {
+  CF.raf = requestAnimationFrame(cfLoop);
+  const cx = CF.cx; if (!cx) return;
+  cx.clearRect(0, 0, innerWidth, innerHeight);
+  CF.parts = CF.parts.filter(p => p.life > 0);
+  if (!CF.parts.length) { cancelAnimationFrame(CF.raf); CF.raf = 0; return; }
+  CF.parts.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.26; p.vx *= 0.99; p.a += p.av; p.life--;
+    if (p.life < 40) p.o = p.life / 40;
+    cx.save(); cx.translate(p.x, p.y); cx.rotate(p.a); cx.globalAlpha = p.o;
+    cx.fillStyle = p.c; cx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); cx.restore();
+  });
+}
+
+/* ---------------- fails / meta ---------------- */
+const MILESTONE_COPY = {
+  5:  '5 attempts. Perfectly normal. The average is lower, but averages exclude you.',
+  10: '10 attempts. Your persistence has been noted in your file. There is a file.',
+  25: "25 attempts. You've unlocked our Empathy Tier. It includes this message.",
+  50: '50 attempts. At this point you work here. Onboarding does not count as hours.',
+};
+function fail(msg, opts = {}) {
+  S.fails++; S.failsBy[S.step] = (S.failsBy[S.step] || 0) + 1;
+  LS.lifetimeFails = (LS.lifetimeFails || 0) + 1; saveLS();
+  const fc = $('#failCount');
+  fc.textContent = S.fails;
+  fc.classList.remove('bump'); void fc.offsetWidth; fc.classList.add('bump');
+  if (msg) toast(msg, { type: 'err', ms: opts.ms || 3600 });
+  if (opts.sound === 'womp') sWomp(); else if (opts.sound !== false) sThud();
+  if (opts.shake !== false) {
+    const card = $('#card');
+    card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+  }
+  const m = MILESTONE_COPY[S.fails];
+  if (m && !S.milestonesHit[S.fails]) {
+    S.milestonesHit[S.fails] = true;
+    const r = fc.getBoundingClientRect();
+    setTimeout(() => { confetti(r.left + r.width / 2, r.top, 90); sChime(); toast(m, { ms: 6000 }); }, 350);
+  }
+}
+const failsHere = () => S.failsBy[S.step] || 0;
+
+/* session timer */
+function fmtT(ms) {
+  const s = Math.floor(ms / 1000), m = Math.floor(s / 60);
+  return m + ':' + String(s % 60).padStart(2, '0');
+}
+let warned20 = false; // reset in resetRun
+setInterval(() => {
+  if (!S.startT || S.done) return;
+  const el = $('#wasteT'), ms = Date.now() - S.startT;
+  const s = Math.floor(ms / 1000), m = Math.floor(s / 60);
+  el.innerHTML = m + '<span class="blinkc">:</span>' + String(s % 60).padStart(2, '0');
+  if (!warned20 && ms > 20 * 60000) { warned20 = true; toast('You have now spent 20 minutes on a 2-minute setup.', { ms: 8000 }); }
+}, 1000);
+
+/* progress + stepper */
+function pctFor(step) { return step >= 11 ? 100 : Math.round(91 * (1 - Math.pow(1 - step / TOTAL, 2.6))); }
+let pctShown = 0, pctRaf = 0;
+function setProgress(step, rollback) {
+  const target = pctFor(step);
+  const fill = $('#pfill');
+  fill.classList.toggle('rollback', !!rollback);
+  fill.style.width = target + '%';
+  cancelAnimationFrame(pctRaf);
+  const from = pctShown, t0 = performance.now(), dur = RM ? 80 : (rollback ? 1400 : 700);
+  (function tickPct(now) {
+    const k = clamp((now - t0) / dur, 0, 1);
+    pctShown = Math.round(from + (target - from) * (1 - Math.pow(1 - k, 3)));
+    $('#ppct').textContent = pctShown + '%';
+    if (k < 1) pctRaf = requestAnimationFrame(tickPct);
+  })(t0);
+}
+function drawStepper() {
+  const el = $('#stepper'); el.innerHTML = '';
+  for (let i = 1; i <= TOTAL; i++) {
+    const d = document.createElement('span');
+    d.className = 'dot' + (i < S.step ? ' done' : i === S.step ? ' cur' : '');
+    el.appendChild(d);
+  }
+}
+
+/* chip */
+function setChip(name) {
+  $('#chipName').textContent = name;
+  $('#avatarTxt').textContent = (name[0] || 'G').toUpperCase();
+}
+
+/* ---------------- pane transitions ---------------- */
+let settleT = 0;
+function goTo(step, opts = {}) {
+  if (RESTORE.theater || !STEPS[step]) return;
+  clearTimeout(settleT);
+  runCleanups(); clearStepTimers();
+  S.step = step;
+  drawStepper();
+  setProgress(step, opts.rollback);
+  const card = $('#card');
+  const old = $('.pane:not(.exit)', card);
+  const h0 = card.offsetHeight;
+  card.style.height = h0 + 'px';
+  const fresh = document.createElement('div');
+  fresh.className = 'pane enter';
+  const def = STEPS[step];
+  fresh.innerHTML = def.html();
+  $$('#card > .pane.exit').forEach(p => p.remove());
+  if (old) old.classList.add('exit');
+  card.appendChild(fresh);
+  $$(':scope > *', fresh).forEach((el, i) => { el.classList.add('stg'); el.style.setProperty('--i', i); });
+  let settled = false;
+  requestAnimationFrame(() => { if (!settled) card.style.height = fresh.offsetHeight + 'px'; });
+  settleT = setTimeout(() => {
+    settled = true;
+    if (old) old.remove();
+    card.style.height = 'auto';
+    fresh.classList.remove('enter');
+  }, RM ? 100 : 340);
+  if (def.mount) def.mount(fresh);
+}
+function advance() {
+  if (RESTORE.theater) return;
+  sChime();
+  if (S.step === 9 && !S.rewindDone) { theGreatRewind(); return; }
+  if (RESTORE.active) {
+    // only consume a queue slot when the completed step IS the current queue step
+    // (Back navigation can put the player on an earlier step mid-restore)
+    if (S.step === RESTORE.queue[RESTORE.idx]) restoreNext();
+    else goTo(S.step + 1);
+    return;
+  }
+  goTo(S.step + 1);
+}
+
+/* shared footer */
+function footHTML(opts = {}) {
+  const backD = opts.noBack ? 'disabled' : '';
+  return `<div class="cfoot">
+    <button class="btn btn-ghost" data-act="back" ${backD}>Back</button>
+    <div class="grow"></div>
+    <button class="btn btn-primary" data-act="next" ${opts.nextDisabled ? 'disabled' : ''} ${opts.dim ? 'style="opacity:.4"' : ''}>${opts.next || 'Continue'}</button>
+  </div>`;
+}
+function wireFoot(pane, onNext) {
+  const b = $('[data-act="back"]', pane);
+  if (b) b.addEventListener('click', () => {
+    sTick();
+    if (S.step > 1) { toast('Going back. Your progress on this step felt included.', { ms: 2800 }); goTo(S.step - 1); }
+  });
+  const n = $('[data-act="next"]', pane);
+  if (n && onNext) n.addEventListener('click', e => onNext(e, n));
+  return n;
+}
+
+/* ============================================================
+   STEP DEFINITIONS
+   ============================================================ */
+const STEPS = {};
+
+/* ---------- 0 · welcome ---------- */
+STEPS[0] = {
+  html: () => `
+    <div class="kicker">Welcome</div>
+    <h1 class="title">Set up your Flowline workspace</h1>
+    <p class="sub">Setup takes about 2 minutes. Join 4,000,000 professionals who finished onboarding. We miss them.</p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-primary" id="getStarted" style="height:48px;padding:0 28px">Get started</button>
+      <span class="fineprint" style="margin:0">No credit card required. We already have it.</span>
+    </div>
+    ${LS.completions ? `<p class="fineprint">Welcome back. Your file remains open. Personal best: ${fmtT(LS.bestTimeMs || 0)}, ${LS.bestFails ?? '?'} attempts.</p>` : ''}
+  `,
+  mount(pane) {
+    $('#getStarted', pane).addEventListener('click', () => {
+      sTick();
+      if (!S.startT) S.startT = Date.now();
+      goTo(1);
+    });
+    after(20000, () => { if (S.step === 0) toast('The Get started button is not a trap. Probably.', { ms: 5000 }); });
+    after(45000, () => { if (S.step === 0) toast('Take your time. The estimate does.', { ms: 5000 }); });
+  },
+};
+
+/* ---------- 1 · dodging continue ---------- */
+STEPS[1] = {
+  html: () => `
+    <div class="kicker">Step 1 of 10</div>
+    <h1 class="title">Click Continue</h1>
+    <p class="sub">That's the whole step. Savor it.</p>
+    <div class="playfield" id="dodgeField">
+      <button class="btn btn-primary" id="dodgeBtn">Continue</button>
+    </div>
+    <p class="fineprint">Tip: The button will not move this time.</p>
+  `,
+  mount(pane) {
+    const field = $('#dodgeField', pane), btn = $('#dodgeBtn', pane);
+    let vel = 0, last = null, dodges = 0, tired = false, jokePlayed = false, lastDodge = 0, done = false;
+    const MAXD = COARSE ? 3 : 6;
+
+    function place(nx, ny, anim = true) {
+      const fr = field.getBoundingClientRect(), br = btn.getBoundingClientRect();
+      const pad = 8;
+      nx = clamp(nx, br.width / 2 + pad, fr.width - br.width / 2 - pad);
+      ny = clamp(ny, br.height / 2 + pad, fr.height - br.height / 2 - pad);
+      if (!anim) btn.style.transition = 'none';
+      btn.style.left = (nx / fr.width * 100) + '%';
+      btn.style.top = (ny / fr.height * 100) + '%';
+      if (!anim) requestAnimationFrame(() => { btn.style.transition = ''; });
+    }
+    function dodge(px, py) {
+      const now = performance.now();
+      if (now - lastDodge < 350 || tired || done) return;
+      lastDodge = now;
+      dodges++;
+      const fr = field.getBoundingClientRect(), br = btn.getBoundingClientRect();
+      const bx = br.left + br.width / 2 - fr.left, by = br.top + br.height / 2 - fr.top;
+      let ang = Math.atan2(by - py, bx - px) + (Math.random() - 0.5) * 1.1;
+      const dist = tired ? 40 : dodges > 4 ? 90 : 150 + Math.random() * 70;
+      // bias away from edges so it never corners itself
+      let nx = bx + Math.cos(ang) * dist, ny = by + Math.sin(ang) * dist;
+      if (nx < 70 || nx > fr.width - 70) { ang = Math.PI - ang; nx = bx + Math.cos(ang) * dist; }
+      if (ny < 40 || ny > fr.height - 40) { ang = -ang; ny = by + Math.sin(ang) * dist; }
+      place(nx, ny);
+      sPop();
+      fail(null, { shake: false, sound: false });
+      if (dodges === MAXD) {
+        tired = true;
+        after(400, () => { if (!done) { btn.textContent = 'Fine.'; toast('The button has agreed to cooperate.', { ms: 3000 }); } });
+      }
+    }
+    field.addEventListener('pointermove', e => {
+      if (done || e.pointerType !== 'mouse') return;
+      const t = performance.now();
+      if (last) {
+        const dt = t - last.t;
+        if (dt > 0) {
+          const inst = Math.hypot(e.clientX - last.x, e.clientY - last.y) / dt * 1000;
+          vel = vel * 0.6 + inst * 0.4;
+        }
+      }
+      last = { x: e.clientX, y: e.clientY, t };
+      const br = btn.getBoundingClientRect();
+      const d = Math.hypot(e.clientX - (br.left + br.width / 2), e.clientY - (br.top + br.height / 2));
+      const fr = field.getBoundingClientRect();
+      if (d < 120 && vel > 140) dodge(e.clientX - fr.left, e.clientY - fr.top);
+    });
+    btn.addEventListener('pointerdown', e => {
+      if (done) return;
+      if (e.pointerType !== 'mouse' && !tired) {
+        const fr = field.getBoundingClientRect();
+        dodge(e.clientX - fr.left, e.clientY - fr.top);
+      }
+    });
+    btn.addEventListener('click', e => {
+      if (done) return;
+      // keyboard activation (detail 0) always wins — the accessibility door
+      const isKey = e.detail === 0;
+      if (!isKey && tired && !jokePlayed && !COARSE) {
+        jokePlayed = true;
+        const r = btn.getBoundingClientRect();
+        confetti(r.left + r.width / 2, r.top, 40); sChime();
+        btn.textContent = 'Just kidding';
+        const fr = field.getBoundingClientRect();
+        dodgeOnce(fr); fail(null, { shake: false, sound: false });
+        after(600, () => { if (!done) btn.textContent = 'Continue'; });
+        return;
+      }
+      done = true;
+      toast(isKey ? 'Keyboard user detected. The building respects you.' : 'Step 1 complete. It gets easier from here. It does not.', { type: 'ok', ms: 3200 });
+      advance();
+    });
+    function dodgeOnce(fr) {
+      lastDodge = 0; tired = false; dodge(fr.width / 2, fr.height / 2); tired = true;
+    }
+  },
+};
+
+/* ---------- 2 · terms rubber-band ---------- */
+const TERMS = (() => {
+  const boiler = 'To the maximum extent permitted by applicable law, and to several extents that are not, the foregoing applies retroactively, proactively, and in at least two adjacent timelines. Capitalized terms mean whatever they meant at the time of drafting, which was late.';
+  const secs = [
+    ['1. Acceptance of Terms', 'By reading this sentence you have already agreed. The agreement occurred somewhere around the word "reading". We appreciate your enthusiasm.'],
+    ['2. The Service', 'Flowline provides workflow automation, defined loosely, delivered eventually. Features described in marketing materials are aspirational and, in some cases, fictional.'],
+    ['3. Your Account', 'You are responsible for your password, your actions, and our mistakes. Sharing your account is prohibited unless it generates a referral.'],
+    ['4. Privacy', 'We collect data you provide, data you do not provide, and data about the data. See our Privacy Policy, which links back to this document.'],
+    ['5. Cookies', 'We value your privacy. We have had it appraised. All 847 cookies are essential. To us.'],
+    ['6. Acceptable Use', 'You may not reverse engineer the Service, or forward engineer it without a permit. Sarcasm directed at the onboarding wizard is logged.'],
+    ['7. Payments', 'No credit card required. We already have it. Refunds are available in the form of closure.'],
+    ['8. Availability', 'We guarantee 99.9% uptime, measured during maintenance windows. Downtime is called "focus time" and is billed normally.'],
+    ['9. Intellectual Property', 'Anything you create belongs to you. Anything good you create belongs to us. This clause was written by our best lawyer, so it belongs to us.'],
+    ['10. Warranties', 'The Service is provided as-is, where-is, and why-is. Any warranty, express or implied, was left in a taxi in 2021.'],
+    ['11. Limitation of Liability', 'Our total liability is limited to the amount you paid us this week: zero dollars. We are prepared to double that.'],
+    ['12. Miscellaneous', '12.1 Section headings are decorative. 12.2 In case of conflict between these Terms and reality, the Terms prevail. 12.3 This clause intentionally left binding. 12.4 The End key exists. We checked. 12.5 You have now read section 12.4. It was trying to help you.'],
+    ['13. Dispute Resolution', 'All disputes shall be settled by best-of-three rock-paper-scissors in the parking lot of a participating Denny\'s. Arbitrator brings their own gravel.'],
+    ['14. Termination', 'You may stop using Flowline at any time, though historically, no one has. We may terminate this agreement by whispering it.'],
+    ['15. Changes to These Terms', 'We may change these Terms while you are reading them. We just did. Continued scrolling constitutes enthusiasm.'],
+    ['16. Contact', 'Questions may be directed to legal@flowline.app, an inbox monitored by a candle. Response times vary by season.'],
+  ];
+  return secs.map(([h, p]) => `<h3>${h}</h3><p>${p}</p><p>${boiler}</p>`).join('');
+})();
+STEPS[2] = {
+  html: () => `
+    <div class="kicker">Step 2 of 10</div>
+    <h1 class="title">Accept our Terms of Service</h1>
+    <p class="sub">Reading them is permitted but historically unpopular. Scroll to the bottom to enable Accept.</p>
+    <div class="termsbox">
+      <div class="terms" id="terms" tabindex="0" aria-label="Terms of service">${TERMS}
+        <p style="text-align:center;color:var(--faint)">— End of Terms. You made it. Legally, that is growth. —</p>
+      </div>
+      <div class="readbar"><i id="readFill"></i></div>
+    </div>
+    ${footHTML({ next: 'Accept & Continue', nextDisabled: true })}
+  `,
+  mount(pane) {
+    const box = $('#terms', pane), fill = $('#readFill', pane);
+    const nextBtn = wireFoot(pane, () => { sTick(); advance(); });
+    let latched = false, latchTimer = 0, snapTimer = 0, snaps = 0, snapping = false;
+    box.focus({ preventScroll: true });
+
+    function latch() {
+      if (latched) return;
+      latched = true;
+      killTimer(snapTimer); killTimer(latchTimer);
+      nextBtn.disabled = false; sPop();
+      toast('Terms reviewed. Section 12.4 says hello.', { type: 'ok', ms: 3200 });
+    }
+    function atBottom() { return box.scrollTop + box.clientHeight >= box.scrollHeight - 2; }
+    function snapBack() {
+      if (latched || atBottom() || snapping) return;
+      if (box.scrollTop < 120) return;
+      snapping = true;
+      snaps++;
+      const target = box.scrollTop * 0.65;
+      box.scrollTo({ top: target, behavior: RM ? 'auto' : 'smooth' });
+      fail(null, { shake: false });
+      after(650, () => { snapping = false; });
+      if (snaps === 2) toast('The document prefers to be read from slightly earlier.', { ms: 3600 });
+      if (snaps === 3 && !$('.tldr', pane)) {
+        const b = document.createElement('button');
+        b.className = 'tldr'; b.textContent = 'TL;DR';
+        $('.termsbox', pane).appendChild(b);
+        b.addEventListener('click', () => { sTick(); box.scrollTop = box.scrollHeight; latch(); });
+        toast('A TL;DR button has been provided. We are not monsters.', { ms: 4200 });
+      }
+    }
+    box.addEventListener('scroll', () => {
+      fill.style.width = clamp(box.scrollTop / (box.scrollHeight - box.clientHeight) * 100, 0, 100) + '%';
+      if (latched || snapping) return;
+      killTimer(snapTimer); killTimer(latchTimer);
+      if (atBottom()) latchTimer = after(800, latch);
+      else snapTimer = after(300, snapBack);
+    });
+    box.addEventListener('keydown', e => {
+      if (e.key === 'End' || (e.metaKey && e.key === 'ArrowDown') || (e.ctrlKey && e.key === 'End')) {
+        e.preventDefault();
+        box.scrollTop = box.scrollHeight;
+        latch();
+        toast('The End key. Efficient. Section 12.4 is proud.', { type: 'ok', ms: 3600 });
+      }
+    });
+  },
+};
+
+/* ---------- 3 · un-checkbox (+ cookie banner) ---------- */
+STEPS[3] = {
+  html: () => `
+    <div class="kicker">Step 3 of 10</div>
+    <h1 class="title">Confirm you'd like to proceed</h1>
+    <p class="sub">Check the box. The box has trust issues.</p>
+    <div class="checkrow" id="checkrow" role="checkbox" aria-checked="false" tabindex="0">
+      <span class="cbwrap">
+        <svg class="holdring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18"/></svg>
+        <span class="cbox"><svg viewBox="0 0 20 20"><path d="M4 10.5 8.5 15 16 6"/></svg></span>
+      </span>
+      <div>
+        <div style="font-weight:600">I am not a robot</div>
+        <div class="fineprint" id="cbHelp" style="margin-top:2px">This confirms you would like to proceed.</div>
+      </div>
+    </div>
+    ${footHTML({ nextDisabled: true })}
+  `,
+  mount(pane) {
+    const row = $('#checkrow', pane), ring = $('.holdring', pane), help = $('#cbHelp', pane);
+    const nextBtn = wireFoot(pane, () => { sTick(); advance(); });
+    let checked = false, locked = false, uncheckT = 0, holdT = 0, holdStart = 0, rechecks = 0;
+
+    function setChecked(v) {
+      checked = v;
+      row.classList.toggle('checked', v);
+      row.setAttribute('aria-checked', v);
+      refreshNext();
+    }
+    function refreshNext() { nextBtn.disabled = !(checked && S.cookieDone); }
+    function betray() {
+      if (locked || !checked) return;
+      setChecked(false);
+      sPop();
+      fail('The checkbox reserves the right to reconsider. See Terms, section 12.4.', { shake: false, ms: 3000 });
+      help.textContent = failsHere() >= 2 ? 'Are you really sure? Hold that thought.' : 'Please confirm you are human.';
+    }
+    function lock() {
+      locked = true;
+      killTimer(uncheckT);
+      row.classList.add('locked');
+      setChecked(true);
+      help.textContent = 'Confirmed. Permanently. We checked with the box.';
+      sChime();
+    }
+    row.addEventListener('pointerdown', e => {
+      if (locked) return;
+      e.preventDefault();
+      capture(row, e);
+      holdStart = performance.now();
+      ring.classList.add('holding');
+      $('circle', ring).style.strokeDashoffset = '0';
+      holdT = after(1200, lock);
+    });
+    function plainCheck() {
+      if (locked || checked) return;
+      setChecked(true); sTick();
+      rechecks++;
+      if (rechecks >= 4) { lock(); toast('Persistence acknowledged. The box yields.', { type: 'ok' }); return; }
+      killTimer(uncheckT);
+      uncheckT = after(700 + Math.random() * 400, betray);
+    }
+    function endHold() {
+      if (locked) return;
+      ring.classList.remove('holding');
+      $('circle', ring).style.strokeDashoffset = '120';
+      killTimer(holdT);
+      if (performance.now() - holdStart < 1200 && holdStart) {
+        holdStart = 0;
+        plainCheck();
+      }
+    }
+    row.addEventListener('pointerup', endHold);
+    row.addEventListener('pointercancel', endHold);
+    row.addEventListener('keydown', e => {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); plainCheck(); }
+    });
+    row.addEventListener('contextmenu', e => e.preventDefault());
+    onLeave(() => { killTimer(uncheckT); killTimer(holdT); });
+
+    // cookie banner arrives fashionably late
+    if (!S.cookieDone) after(900, () => {
+      if (cookieActive()) { cookieOnResolve = refreshNext; refreshNext(); }
+      else spawnCookieBanner(refreshNext);
+    });
+    refreshNext();
+  },
+};
+
+/* ---------- cookie banner system ---------- */
+let cookieLoops = 0, cookieOnResolve = null;
+function cookieActive() { return !S.cookieDone && $('#cookiewrap').children.length > 0; }
+function spawnCookieBanner(onChange, title) {
+  if (S.cookieDone) return;
+  cookieOnResolve = onChange || cookieOnResolve;
+  const wrap = $('#cookiewrap');
+  const el = document.createElement('div');
+  el.className = 'cookie';
+  el.innerHTML = `
+    <h4>${title || 'We value your privacy.'}</h4>
+    <p>We use cookies to remember you. Especially the failures. All 847 cookies are essential. To us. By dismissing this banner, you agree it may return. It will.</p>
+    <div class="rowb">
+      <button class="btn btn-primary" data-c="accept">Accept All</button>
+      <button class="btn btn-ghost" data-c="reject" style="opacity:.6">Reject All (available on Enterprise)</button>
+      <button class="mgr" data-c="manage">Manage preferences</button>
+    </div>`;
+  wrap.appendChild(el);
+  const bump = () => { if (cookieOnResolve) cookieOnResolve(); };
+  bump();
+  $('[data-c="reject"]', el).addEventListener('click', () => {
+    fail('Rejection received. It did not take.', { shake: false, ms: 2600 });
+    dismiss(el);
+    cookieLoops++;
+    after(900, () => {
+      if (S.cookieDone) return;
+      spawnCookieBanner(null, 'We value your privacy. Like, really a lot.');
+      if (cookieLoops === 3) cookieCountdown();
+    });
+  });
+  $('[data-c="accept"]', el).addEventListener('click', () => {
+    fail(null, { shake: false });
+    if ($$('.cookie').length < 3) {
+      toast('Great! Please also accept these.', { ms: 3000 });
+      spawnCookieBanner(null, 'Additional privacy. Additional value.');
+    } else {
+      el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+      toast('Acceptance must be unanimous. Keep going.', { ms: 3000 });
+    }
+  });
+  $('[data-c="manage"]', el).addEventListener('click', () => { sTick(); managePrefs(el); });
+  function dismiss(node) { node.classList.add('bye'); setTimeout(() => { node.remove(); bump(); }, 300); }
+  function cookieCountdown() {
+    const b = $('.cookie:last-child h4'); if (!b) return;
+    let n = 5;
+    const iv = every(1000, () => {
+      if (S.cookieDone || !b.isConnected) { killTimer(iv); return; }
+      b.textContent = 'Auto-accepting all cookies in ' + n + '…';
+      if (n-- <= 0) { killTimer(iv); b.textContent = 'We value your privacy.'; toast('You flinched.', { ms: 3000 }); }
+    });
+  }
+  function managePrefs(node) {
+    const cats = ['Strictly necessary', 'Performance', 'Personalization', 'Advertising', 'Partner advertising', 'Partners of partners', 'Vibes analytics', 'Miscellaneous surveillance'];
+    node.innerHTML = `
+      <h4>Manage preferences</h4>
+      <p>Your preferences have been noted and overridden.</p>
+      <div>${cats.map((c, i) => `
+        <div class="tgl"><span>${c}</span>
+          <span style="display:flex;align-items:center;gap:8px"><small data-note="${i}">recommended setting restored</small>
+          <button class="switch" data-t="${i}" aria-label="Toggle ${c}"></button></span>
+        </div>`).join('')}
+      </div>
+      <div class="rowb" style="margin-top:14px">
+        <button class="btn btn-ghost" data-c="confirm" style="margin-left:auto">Confirm choices</button>
+      </div>`;
+    $$('.switch', node).forEach(sw => {
+      sw.addEventListener('click', () => {
+        sTick();
+        sw.classList.add('offs');
+        const note = $(`[data-note="${sw.dataset.t}"]`, node);
+        after(2000, () => {
+          if (!sw.isConnected) return;
+          sw.classList.remove('offs');
+          if (note) { note.classList.add('on'); setTimeout(() => note.classList.remove('on'), 1500); }
+        });
+      });
+    });
+    $('[data-c="confirm"]', node).addEventListener('click', () => {
+      S.cookieDone = true;
+      sChime();
+      toast('Preferences noted and overridden. Banner retired with honors.', { type: 'ok', ms: 4200 });
+      $$('.cookie').forEach(dismiss);
+    });
+  }
+}
+
+/* ---------- 4 · slider ---------- */
+STEPS[4] = {
+  html: () => `
+    <div class="kicker">Step 4 of 10</div>
+    <h1 class="title">Set the slider to exactly 50</h1>
+    <p class="sub">Precision is one of our four core values. The others are confidential.</p>
+    <div class="sliderzone">
+      <div class="slidereadout" id="sval">35</div>
+      <div class="sliderrow">
+        <button class="stepbtn" id="sMinus" aria-label="Decrease">−</button>
+        <div class="strack" id="strack" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="35" aria-label="Notification balance">
+          <div class="sfill" id="sfill"></div>
+          <div class="sthumb" id="sthumb"></div>
+        </div>
+        <button class="stepbtn" id="sPlus" aria-label="Increase">+</button>
+      </div>
+      <p class="fineprint" id="sliderHint" style="text-align:center">Drag the slider. It has been calibrated.</p>
+    </div>
+    ${footHTML({ next: 'Confirm 50' })}
+  `,
+  mount(pane) {
+    const track = $('#strack', pane), fill = $('#sfill', pane), thumb = $('#sthumb', pane);
+    const out = $('#sval', pane), hint = $('#sliderHint', pane);
+    let val = 35, dragging = false;
+    function render() {
+      out.textContent = val;
+      out.classList.toggle('at50', val === 50);
+      fill.style.width = val + '%';
+      thumb.style.left = val + '%';
+      track.setAttribute('aria-valuenow', val);
+    }
+    function setDirect(v) { val = clamp(Math.round(v), 0, 100); render(); }
+    function setDragged(v) {
+      v = clamp(Math.round(v), 0, 100);
+      if (v >= 48 && v <= 52) {
+        track.classList.add('repel');
+        v = v < 50 ? 47 : v > 50 ? 53 : (val < 50 ? 53 : 47);
+        setTimeout(() => track.classList.remove('repel'), 140);
+      }
+      val = v; render();
+    }
+    function pctFromEvent(e) {
+      const r = track.getBoundingClientRect();
+      return (e.clientX - r.left) / r.width * 100;
+    }
+    track.addEventListener('pointerdown', e => {
+      dragging = true;
+      capture(track, e);
+      track.focus({ preventScroll: true });
+      setDragged(pctFromEvent(e));
+    });
+    track.addEventListener('pointermove', e => { if (dragging) setDragged(pctFromEvent(e)); });
+    track.addEventListener('pointerup', () => { dragging = false; });
+    track.addEventListener('pointercancel', () => { dragging = false; });
+    track.addEventListener('lostpointercapture', () => { dragging = false; });
+    track.addEventListener('keydown', e => {
+      const step = e.shiftKey ? 5 : 1;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); setDirect(val - step); sTick(); }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); setDirect(val + step); sTick(); }
+      if (e.key === 'Home') { e.preventDefault(); setDirect(0); }
+      if (e.key === 'End') { e.preventDefault(); setDirect(100); }
+    });
+    $('#sMinus', pane).addEventListener('click', () => { setDirect(val - 1); sTick(); });
+    $('#sPlus', pane).addEventListener('click', () => { setDirect(val + 1); sTick(); });
+    wireFoot(pane, () => {
+      if (val === 50) { toast('Exactly 50. The committee is stunned.', { type: 'ok' }); advance(); }
+      else {
+        fail(val === 47 || val === 53 ? 'So close. The slider disagrees with your methods.' : 'That is ' + val + '. We asked for 50.', { ms: 3200 });
+        if (failsHere() >= 2) hint.textContent = 'This slider respects keyboards more than it respects you.';
+      }
+    });
+    render();
+  },
+};
+
+/* ---------- 5 · name autocorrect ---------- */
+STEPS[5] = {
+  html: () => `
+    <div class="kicker">Step 5 of 10</div>
+    <h1 class="title">Enter your full name</h1>
+    <p class="sub">We will decide whether it's plausible.</p>
+    <form id="nameForm" autocomplete="off">
+      <div class="field">
+        <input id="nameInput" type="text" placeholder="e.g. Derek P." spellcheck="false" aria-label="Full name">
+        <button type="button" class="aipill" id="aiPill" aria-pressed="true">AI assist: ON</button>
+      </div>
+    </form>
+    <p class="fineprint">Press Enter to submit — it's faster. Trust us.</p>
+    ${footHTML()}
+  `,
+  mount(pane) {
+    const input = $('#nameInput', pane), pill = $('#aiPill', pane);
+    let lastUser = '', mangleT = 0, mangleCount = 0, aiOn = true;
+    input.focus();
+
+    const mangles = [
+      v => v + '™',
+      v => v.length > 2 ? v.slice(0, -2) + v.slice(-1) + v.slice(-2, -1) : v + 'e',
+      v => v.split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w).join(' ').replace(/([a-z])([a-z])/, (m, a, b) => a + b.toUpperCase()),
+      v => { const i = Math.floor(v.length / 2); return v.slice(0, i) + v[i] + v.slice(i); },
+    ];
+    function scheduleMangle() {
+      killTimer(mangleT);
+      if (!aiOn) return;
+      mangleT = after(400, () => {
+        if (!input.value.trim() || document.activeElement !== input && !input.value) return;
+        const m = mangles[mangleCount++ % mangles.length](input.value);
+        if (m !== input.value) {
+          input.value = m;
+          input.classList.remove('sparkle'); void input.offsetWidth; input.classList.add('sparkle');
+          sPop();
+        }
+      });
+    }
+    input.addEventListener('input', () => { lastUser = input.value; scheduleMangle(); });
+    pill.addEventListener('click', () => {
+      aiOn = !aiOn;
+      pill.classList.toggle('off', !aiOn);
+      pill.textContent = 'AI assist: ' + (aiOn ? 'ON' : 'OFF');
+      pill.setAttribute('aria-pressed', aiOn);
+      killTimer(mangleT);
+      sTick();
+      if (!aiOn) toast('AI assist disabled. It will remember this.', { ms: 3200 });
+    });
+    function submit() {
+      killTimer(mangleT);
+      const v = input.value.trim();
+      if (v.length < 2) { fail('Please enter a name. Any name. Yours, ideally.', { ms: 3000 }); return; }
+      if (v !== lastUser.trim()) {
+        fail("That doesn't look like a real name.", { ms: 3200 });
+        if (failsHere() >= 3) pill.classList.add('glow');
+        if (failsHere() === 2) toast('Tip: the assistant waits 400ms. You don\'t have to.', { ms: 4200 });
+        return;
+      }
+      S.name = v;
+      setChip(v.split(' ')[0]);
+      toast('Name accepted. It is plausible enough.', { type: 'ok' });
+      advance();
+    }
+    $('#nameForm', pane).addEventListener('submit', e => { e.preventDefault(); submit(); });
+    wireFoot(pane, submit);
+    onLeave(() => killTimer(mangleT));
+  },
+};
+
+/* ---------- 6 · email error theater ---------- */
+const FAKE_ERRORS = [
+  'Something went wrong. Please try again. (Error 0x0)',
+  "CSRF token expired. We don't know whose.",
+  '429 Too Many Requests. Please calm down.',
+  '503: our intern unplugged something.',
+  'Error: no error found.',
+  'Your click was received but did not meet our standards.',
+];
+STEPS[6] = {
+  html: () => {
+    const slug = (S.name || 'guest').toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'guest';
+    S.email = slug + '@flowline.app';
+    return `
+    <div class="kicker">Step 6 of 10</div>
+    <h1 class="title">Confirm your work email</h1>
+    <p class="sub">We generated one for you. It felt efficient.</p>
+    <div class="savedflash" id="savedFlash">✓ Saved</div>
+    <div class="emailrow">
+      <span class="addr">${S.email}</span>
+      <button class="btn btn-primary" id="confirmEmail" style="height:38px;font-size:13px">Confirm</button>
+    </div>
+    <p class="fineprint">Tip: Double-clicking helps.</p>
+    ${footHTML({ dim: true })}
+  `;
+  },
+  mount(pane) {
+    const btn = $('#confirmEmail', pane), flashEl = $('#savedFlash', pane);
+    const nextBtn = wireFoot(pane, () => {
+      if (!S.emailOk) { sThud(); toast('Please confirm your email first.', { ms: 2600 }); return; }
+      toast('Email confirmed. It was confirmed a while ago.', { type: 'ok' });
+      advance();
+    });
+    S.emailClicks = 0; S.emailOk = false;
+    btn.addEventListener('click', () => {
+      S.emailClicks++;
+      const nth = S.emailClicks; // capture ordinal: a second click within the 320ms spinner must not steal the success branch
+      btn.innerHTML = '<span class="spinner"></span>';
+      after(320, () => {
+        btn.textContent = 'Confirm';
+        if (nth === 1) {
+          S.emailOk = true;
+          flashEl.classList.remove('on'); void flashEl.offsetWidth; flashEl.classList.add('on');
+          nextBtn.style.opacity = '1';
+          after(420, () => { sThud(); toast(FAKE_ERRORS[0], { type: 'err', ms: 3400 }); });
+        } else {
+          fail(FAKE_ERRORS[(nth - 1) % FAKE_ERRORS.length], { shake: false, ms: 3400 });
+          if (nth === 4) {
+            after(500, () => modal({
+              title: 'A brief confession',
+              body: 'We received your click ' + S.emailClicks + ' times. The first one was enough. It worked. Look at the Continue button. Look at it.',
+              buttons: [{ label: 'Oh.', primary: true }],
+            }));
+          }
+        }
+      });
+    });
+  },
+};
+
+/* ---------- 7 · captcha ---------- */
+function mulberry(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+STEPS[7] = {
+  html: () => `
+    <div class="kicker">Step 7 of 10</div>
+    <h1 class="title">Verify you're human</h1>
+    <p class="sub">Early indicators are mixed.</p>
+    <div class="captcha">
+      <div class="captcha-head">Security check<b id="capInstr">Select all tiles containing the Flowline logo</b></div>
+      <div class="cgrid" id="cgrid"></div>
+      <div class="captcha-foot">
+        <div style="display:flex;gap:4px">
+          <button class="cicon" id="capAudio" aria-label="Audio challenge" title="Audio challenge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0 1 16 0v5a2 2 0 0 1-2 2h-1v-6h3M4 12v5a2 2 0 0 0 2 2h1v-6H4" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="cicon" id="capReload" aria-label="New challenge" title="New challenge">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <span id="capSkipZone"></span>
+        <button class="btn btn-primary" id="capVerify" style="height:36px;font-size:13px">Verify</button>
+      </div>
+    </div>
+    ${footHTML({ nextDisabled: true })}
+  `,
+  mount(pane) {
+    const grid = $('#cgrid', pane), verify = $('#capVerify', pane), instr = $('#capInstr', pane);
+    const nextBtn = wireFoot(pane, () => { sTick(); advance(); });
+    let seed = 7, verified = false;
+
+    function drawTiles() {
+      grid.innerHTML = '';
+      const rnd = mulberry(seed * 1013);
+      for (let i = 0; i < 9; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'ctile';
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = 120;
+        tile.appendChild(cv);
+        const x = cv.getContext('2d');
+        // background wash
+        const g = x.createLinearGradient(0, 0, 120, 120);
+        g.addColorStop(0, `hsl(${210 + rnd() * 30},30%,${88 + rnd() * 6}%)`);
+        g.addColorStop(1, `hsl(${210 + rnd() * 30},25%,${78 + rnd() * 8}%)`);
+        x.fillStyle = g; x.fillRect(0, 0, 120, 120);
+        // partial "logo": three swooping strokes, offset so every tile has a fragment
+        x.save();
+        x.translate(60 + (rnd() - 0.5) * 90, 60 + (rnd() - 0.5) * 90);
+        x.rotate(rnd() * Math.PI * 2);
+        x.strokeStyle = 'rgba(67,83,255,' + (0.5 + rnd() * 0.4) + ')';
+        x.lineCap = 'round';
+        for (let s = 0; s < 3; s++) {
+          x.lineWidth = 9 - s * 2;
+          x.beginPath();
+          x.arc(0, 0, 18 + s * 14, rnd() * Math.PI, rnd() * Math.PI + 2 + rnd() * 2);
+          x.stroke();
+        }
+        x.restore();
+        // noise speckle
+        for (let n = 0; n < 24; n++) {
+          x.fillStyle = 'rgba(16,24,40,' + rnd() * 0.08 + ')';
+          x.fillRect(rnd() * 120, rnd() * 120, 2, 2);
+        }
+        tile.addEventListener('click', () => { if (!verified) { tile.classList.toggle('sel'); sTick(); } });
+        grid.appendChild(tile);
+      }
+    }
+    drawTiles();
+
+    verify.addEventListener('click', () => {
+      if (verified) return;
+      const sel = $$('.ctile.sel', grid).length;
+      const veil = document.createElement('div');
+      veil.className = 'cveil'; veil.innerHTML = '<span class="spinner dark"></span>';
+      grid.appendChild(veil);
+      after(800, () => {
+        veil.remove();
+        if (sel === 0) {
+          verified = true;
+          sChime();
+          instr.textContent = 'Verified. A human would have given up.';
+          nextBtn.disabled = false;
+          toast('Humanity confirmed via resignation.', { type: 'ok', ms: 3600 });
+        } else {
+          seed++;
+          fail('Please try again.', { shake: false, ms: 2400 });
+          drawTiles();
+          if (failsHere() >= 2) instr.textContent = 'Select all tiles that contain the logo, if any';
+          if (failsHere() >= 3 && !$('#robotSkip', pane)) {
+            const a = document.createElement('button');
+            a.id = 'robotSkip'; a.className = 'shame'; a.style.margin = '0';
+            a.textContent = 'Skip verification (I am definitely a robot)';
+            $('#capSkipZone', pane).appendChild(a);
+            a.addEventListener('click', () => {
+              verified = true; S.robot = true;
+              setChip('Robot');
+              instr.textContent = 'Robot self-certified. Refreshingly honest.';
+              nextBtn.disabled = false;
+              sChime();
+              toast('Noted. Forever.', { ms: 3000 });
+            });
+          }
+        }
+      });
+    });
+    $('#capAudio', pane).addEventListener('click', e => {
+      sTick();
+      bubble(e.currentTarget, 'Audio challenge: the correct number of tiles is zero.');
+    });
+    $('#capReload', pane).addEventListener('click', () => { sTick(); seed++; drawTiles(); });
+  },
+};
+function bubble(anchor, text) {
+  $$('.tooltipbubble').forEach(b => b.remove());
+  const b = document.createElement('div');
+  b.className = 'tooltipbubble'; b.textContent = text;
+  document.body.appendChild(b);
+  const r = anchor.getBoundingClientRect();
+  b.style.left = clamp(r.left, 8, innerWidth - 260) + 'px';
+  b.style.top = (r.top - b.offsetHeight - 8 + scrollY) + 'px';
+  setTimeout(() => b.remove(), 4200);
+}
+
+/* ---------- 8 · plans / shame link ---------- */
+STEPS[8] = {
+  html: () => `
+    <div class="kicker">Step 8 of 10</div>
+    <h1 class="title">Select a plan</h1>
+    <p class="sub">All plans are identical. Choose carefully.</p>
+    <div class="plans">
+      <div class="plan" id="planStarter">
+        <h3>Starter</h3><div class="price">$0<small>/mo</small></div>
+        <ul><li>1 workflow</li><li>Community support</li><li>Our gratitude</li></ul>
+        <button class="btn" id="ctaStarter">Choose Starter</button>
+      </div>
+      <div class="plan hot">
+        <span class="tag">MOST POPULAR</span>
+        <h3>Pro</h3><div class="price">$29<small>/mo</small></div>
+        <ul><li>Unlimited workflows</li><li>Priority support</li><li>Advanced insights</li></ul>
+        <button class="btn" id="ctaPro">Choose Pro</button>
+      </div>
+      <div class="plan">
+        <h3>Enterprise</h3><div class="price">Custom</div>
+        <ul><li>Everything in Pro</li><li>SSO, SLA, TLC</li><li>A dedicated human</li></ul>
+        <button class="btn" id="ctaEnt">Contact sales</button>
+      </div>
+    </div>
+    <button class="shame" id="shameLink">no thanks, I'll continue with limited features</button>
+    ${footHTML({ nextDisabled: true })}
+  `,
+  mount(pane) {
+    wireFoot(pane, null);
+    const starter = $('#ctaStarter', pane), card = $('#planStarter', pane);
+    let sDodges = 0, lastD = 0;
+    // Starter: the stage-1 dodge, back for a reunion tour
+    card.addEventListener('pointermove', e => {
+      if (e.pointerType !== 'mouse' || sDodges >= 3) return;
+      const br = starter.getBoundingClientRect();
+      const d = Math.hypot(e.clientX - (br.left + br.width / 2), e.clientY - (br.top + br.height / 2));
+      if (d < 70 && performance.now() - lastD > 400) {
+        lastD = performance.now(); sDodges++;
+        starter.style.transition = 'transform 140ms var(--ease-out)';
+        starter.style.transform = 'translateY(' + (sDodges % 2 ? '-46px' : '0px') + ')';
+        sPop();
+        if (sDodges >= 3) after(300, () => { starter.style.transform = ''; });
+      }
+    });
+    starter.addEventListener('click', () => {
+      starter.innerHTML = '<span class="spinner"></span>';
+      after(2000, () => {
+        starter.textContent = 'Unavailable';
+        starter.classList.add('gone');
+        fail('Payment provider unavailable. (Error 402: Payment Required, philosophically.)', { ms: 4000 });
+      });
+    });
+    // Pro: modal loop
+    $('#ctaPro', pane).addEventListener('click', () => { sTick(); proChain(1); });
+    function proChain(n) {
+      if (n === 1) modal({
+        title: 'Great choice. One thing.',
+        body: 'Pro includes Pro features. Most Pro users also add Pro+ for $12/mo. It includes the features the features were missing.',
+        buttons: [
+          { label: 'Continue with Pro', primary: true, fn: () => proChain(2) },
+          { label: 'No thanks', fn: () => proChain(2) },
+        ],
+      });
+      else if (n === 2) modal({
+        title: 'Before you go further',
+        body: 'Would you like to keep advanced insights? This is the dialog where the buttons move, by the way.',
+        swapAt: 400,
+        buttons: [
+          { label: 'Keep insights', primary: true, fn: () => proChain(3) },
+          { label: 'Remove them', fn: () => proChain(3) },
+        ],
+      });
+      else modal({
+        title: 'Please confirm your confirmation',
+        body: 'A confirmation this important deserves a second confirmation. It is the Flowline way.',
+        buttons: [{
+          label: 'Confirm', primary: true, fn: () => {
+            fail('You appear to be in a loop. It is one of ours.', { ms: 3600 });
+            proChain(1);
+          },
+        }],
+      });
+    }
+    // Enterprise
+    const ent = $('#ctaEnt', pane);
+    ent.addEventListener('click', () => {
+      ent.textContent = 'Requested ✓'; ent.classList.add('gone');
+      fail('Our sales team will reach out. Estimated wait: 6–8 weeks.', { ms: 4000 });
+    });
+    // the honest path
+    const shame = $('#shameLink', pane);
+    shame.addEventListener('click', () => {
+      S.plan = 'Limited (your choice)';
+      sChime();
+      toast('A wise and humble decision.', { type: 'ok' });
+      advance();
+    });
+    const watch = every(800, () => {
+      if (failsHere() >= 3) { shame.classList.add('pulse'); toast('Most users find what they need eventually.', { ms: 4200 }); killTimer(watch); }
+    });
+  },
+};
+
+/* ---------- 9 · review / enter landmine ---------- */
+STEPS[9] = {
+  html: () => `
+    <div class="kicker">Step 9 of 10</div>
+    <h1 class="title">Review your details</h1>
+    <p class="sub">Everything looks correct. Statistically, something isn't.</p>
+    <div class="review">
+      <div class="row"><span class="k">Name</span><span class="v">${escapeHTML(S.name || 'Guest')}${S.robot ? ' (Robot)' : ''}</span></div>
+      <div class="row"><span class="k">Email</span><span class="v">${S.email || 'guest@flowline.app'}</span></div>
+      <div class="row"><span class="k">Plan</span><span class="v">${S.plan}</span></div>
+      <div class="row"><span class="k">Cookies</span><span class="v">847 essential, all accepted</span></div>
+      <div class="row"><span class="k">Human</span><span class="v">${S.robot ? 'Self-declared robot' : 'Verified (barely)'}</span></div>
+    </div>
+    <div id="ringHintZone"></div>
+    <div class="cfoot swap">
+      <button class="btn btn-green" id="discardBtn">Discard and restart setup</button>
+      <div class="grow"></div>
+      <button class="btn btn-ghost" id="realContinue">Continue</button>
+    </div>
+  `,
+  mount(pane) {
+    const discard = $('#discardBtn', pane), realNext = $('#realContinue', pane);
+    after(80, () => { discard.focus(); discard.classList.add('force-ring'); });
+    discard.addEventListener('blur', () => discard.classList.remove('force-ring'));
+    discard.addEventListener('click', () => {
+      const close = modal({
+        title: 'Discarding your progress…',
+        body: '', bar: true, barMs: 1500, noX: true, buttons: [],
+      });
+      onLeave(close); // a goTo must close this button-less modal, never strand it
+      sWomp();
+      after(RM ? 500 : 1600, () => {
+        close();
+        fail(null, { shake: false, sound: false });
+        modal({
+          title: 'Just kidding.',
+          body: 'Nothing was lost. But you did activate a button labeled "Discard and restart setup" without reading it. The green color did all the work.',
+          buttons: [{ label: 'Return to setup', primary: true }],
+        });
+        if (failsHere() >= 3 && !$('#ringHintZone .ringhint')) {
+          $('#ringHintZone', pane).innerHTML = '<div class="ringhint"><span class="arr">→</span> The focus ring has meaning. It always did. Tab moves it.</div>';
+        }
+        after(100, () => { discard.focus(); discard.classList.add('force-ring'); });
+      });
+    });
+    realNext.addEventListener('click', () => {
+      toast('You read the buttons. Character growth.', { type: 'ok', ms: 3000 });
+      advance();
+    });
+  },
+};
+
+/* ---------- 10 · finish ---------- */
+STEPS[10] = {
+  html: () => `
+    <div class="kicker">Step 10 of 10</div>
+    <h1 class="title">Setup complete! Click Finish.</h1>
+    <p class="sub">This is binding for us in no way.</p>
+    <div style="display:grid;place-items:center;padding:20px 0 8px">
+      <button class="btn btn-primary" id="finishBtn" style="height:54px;padding:0 44px;font-size:16px;background:linear-gradient(135deg,var(--brand),#7a86ff)">Finish</button>
+    </div>
+    <p class="fineprint" style="text-align:center">No tricks on this button. We used them all.</p>
+  `,
+  mount(pane) {
+    $('#finishBtn', pane).addEventListener('click', e => {
+      e.currentTarget.disabled = true;
+      sChime();
+      confetti(innerWidth / 2, innerHeight * 0.35, 160);
+      $('#congrats').classList.add('on');
+      after(1400, () => {
+        $('#congrats').classList.remove('on');
+        fakeUpdates();
+      });
+    }, { once: true });
+  },
+};
+
+/* ============================================================
+   THE GREAT REWIND — progress theft, beaten by stillness
+   ============================================================ */
+const RESTORE = { active: false, queue: [], idx: 0, guard: null, live: false, theater: false };
+function theGreatRewind() {
+  S.rewindDone = true;
+  RESTORE.theater = true; // gates advance()/goTo() for the whole theatrical window
+  $('#card').classList.add('frozen');
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  const close = modal({
+    title: 'Connection interrupted',
+    body: 'Restoring your session…',
+    bar: true, barMs: 2500, noX: true, noEsc: true,
+    note: 'Do not touch anything during restoration.',
+    buttons: [],
+  });
+  // raw timers: clearStepTimers must never orphan this modal or skip the restore
+  setTimeout(() => {
+    close();
+    toast("Great news! We've refreshed your session for peak performance. Your progress felt included.", { ms: 5200 });
+    // theatrical stepper rewind 9 → 6
+    let cur = 9;
+    const iv = setInterval(() => {
+      if (cur <= 6) {
+        clearInterval(iv);
+        setProgress(6, true);
+        startRestore();
+        return;
+      }
+      cur--;
+      S.step = cur;
+      drawStepper();
+      const dots = $$('#stepper .dot');
+      if (dots[cur]) { dots[cur].classList.add('undone'); }
+      setProgress(cur, true);
+      sWhoosh();
+    }, 700);
+  }, RM ? 500 : 2700);
+}
+function startRestore() {
+  RESTORE.theater = false;
+  $('#card').classList.remove('frozen');
+  RESTORE.active = true; RESTORE.queue = [6, 7, 8, 9]; RESTORE.idx = 0;
+  restoreMount();
+}
+function restoreMount() {
+  const stepId = RESTORE.queue[RESTORE.idx];
+  RESTORE.live = false;
+  goTo(stepId);
+  const card = $('#card');
+  card.classList.add('frozen');
+  const stamp = document.createElement('div');
+  stamp.className = 'stamp';
+  stamp.innerHTML = '<span class="ring"></span> Restoring step ' + stepId + ' from cache — do not touch anything';
+  card.appendChild(stamp);
+
+  let moved = 0, lastP = null;
+  const t = after(1400, pass);
+  function pass() {
+    removeGuards();
+    stamp.innerHTML = '✓ Restored from cache';
+    sTick();
+    setTimeout(() => stamp.remove(), 500);
+    card.classList.remove('frozen');
+    RESTORE.idx++;
+    if (RESTORE.idx >= RESTORE.queue.length) {
+      RESTORE.active = false;
+      sChime();
+      toast('Session restored. You touched nothing. Growth.', { type: 'ok', ms: 4200 });
+      goTo(10);
+    } else restoreMount();
+  }
+  function invalidate() {
+    killTimer(t);
+    removeGuards();
+    RESTORE.live = true;
+    card.classList.remove('frozen');
+    stamp.classList.add('bad');
+    stamp.innerHTML = 'Cache invalidated by user activity';
+    setTimeout(() => stamp.remove(), 2200);
+    fail('Cache invalidated. The step must now be performed by hand. Yours.', { ms: 4200 });
+  }
+  function onMove(e) {
+    if (lastP) moved += Math.hypot(e.clientX - lastP.x, e.clientY - lastP.y);
+    lastP = { x: e.clientX, y: e.clientY };
+    if (moved > 12) invalidate();
+  }
+  function onDown(e) { e.stopPropagation(); e.preventDefault(); invalidate(); }
+  function onKey(e) { if (e.key === 'Escape') return; e.stopPropagation(); invalidate(); }
+  function removeGuards() {
+    document.removeEventListener('pointermove', onMove, true);
+    document.removeEventListener('pointerdown', onDown, true);
+    document.removeEventListener('keydown', onKey, true);
+  }
+  document.addEventListener('pointermove', onMove, true);
+  document.addEventListener('pointerdown', onDown, true);
+  document.addEventListener('keydown', onKey, true);
+  onLeave(removeGuards);
+}
+function restoreNext() {
+  // a live (invalidated) step was re-beaten — resume the cached run
+  RESTORE.idx++;
+  if (RESTORE.idx >= RESTORE.queue.length) {
+    RESTORE.active = false;
+    toast('Manual restoration complete. The cache is embarrassed for you.', { ms: 4200 });
+    goTo(10);
+  } else restoreMount();
+}
+
+/* ============================================================
+   FAKE UPDATES + VICTORY
+   ============================================================ */
+let updatesRunning = false;
+function fakeUpdates() {
+  if (updatesRunning) return;
+  updatesRunning = true;
+  const scr = $('#updates');
+  // reset run-1 leftovers while still display:none (no transition can run in a hidden subtree)
+  $('#ubarFill').style.width = '0%';
+  $('#ucount').textContent = 'Update 1 of 3,741';
+  $('#skipHint').classList.remove('vis');
+  scr.classList.add('on');
+  requestAnimationFrame(() => { $('#ubarFill').style.width = '99%'; });
+  let un = 1, ended = false;
+  const uiv = setInterval(() => { un++; $('#ucount').textContent = 'Update ' + un + ' of 3,741'; }, 6000);
+  const skipT = setTimeout(() => $('#skipHint').classList.add('vis'), 3000);
+  if (COARSE) $('#skipHint').textContent = 'Tap and hold anywhere to skip';
+  const mercyT = setTimeout(() => { if (!ended) { $('#ucount').textContent = 'You waited. Respect. (Not really.)'; setTimeout(end, 1400); } }, 30000);
+  let holdT = 0;
+  function onKey() { end(); }
+  function onDown() { holdT = setTimeout(end, 700); }
+  function onUp() { clearTimeout(holdT); }
+  function end() {
+    if (ended) return; ended = true; updatesRunning = false;
+    clearInterval(uiv); clearTimeout(skipT); clearTimeout(mercyT); clearTimeout(holdT);
+    document.removeEventListener('keydown', onKey);
+    scr.removeEventListener('pointerdown', onDown);
+    scr.removeEventListener('pointerup', onUp);
+    scr.classList.remove('on');
+    victory();
+  }
+  setTimeout(() => {
+    document.addEventListener('keydown', onKey);
+    scr.addEventListener('pointerdown', onDown);
+    scr.addEventListener('pointerup', onUp);
+  }, 600);
+}
+function victory() {
+  S.done = true;
+  const ms = Date.now() - S.startT;
+  LS.completions = (LS.completions || 0) + 1;
+  const newBestT = !LS.bestTimeMs || ms < LS.bestTimeMs;
+  const newBestF = LS.bestFails == null || S.fails < LS.bestFails;
+  if (newBestT) LS.bestTimeMs = ms;
+  if (newBestF) LS.bestFails = S.fails;
+  saveLS();
+  const avg = 63;
+  const verdict = S.fails <= avg
+    ? 'The average user fails ' + avg + ' times. You are statistically above average. Congratulations on this hollow achievement.'
+    : 'The average user fails ' + avg + ' times. You are not the average user. You are something else entirely.';
+  const v = $('#victory');
+  v.innerHTML = `
+    <div class="cert">
+      <div class="seal"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8L12 2z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+      <h2>Certificate of Completion</h2>
+      <p style="margin-bottom:0">This certifies that</p>
+      <div class="certname">${escapeHTML(S.robot ? 'Robot' : (S.name || 'A Guest'))}</div>
+      <p>completed a 2-minute setup in ${fmtT(ms)}.</p>
+      <div class="stats">
+        <div><b>${fmtT(ms)}</b><span>Time lost${newBestT && LS.completions > 1 ? ' · best' : ''}</span></div>
+        <div><b>${S.fails}</b><span>Attempts${newBestF && LS.completions > 1 ? ' · best' : ''}</span></div>
+        <div><b>${LS.completions}</b><span>Completions</span></div>
+      </div>
+      <p>${verdict}</p>
+      <p>Attempts were counted individually. Fondly. This certificate confers no rights, access, or product.</p>
+      <p>Thank you for choosing Flowline. There was no other option, but it's polite to say.</p>
+      <div class="sig">Signed: The Onboarding Team (automated, unsupervised)</div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:20px">
+        <button class="btn btn-primary" id="againBtn">Run it again</button>
+      </div>
+      <p class="fineprint" style="margin-top:10px">The button above is honest. It is the only one that was.</p>
+    </div>`;
+  v.classList.add('on');
+  sChime();
+  confetti(innerWidth / 2, innerHeight * 0.3, 140);
+  $('#againBtn').addEventListener('click', () => {
+    v.classList.remove('on');
+    resetRun();
+  });
+}
+function resetRun() {
+  runCleanups(); clearStepTimers();
+  Object.assign(S, {
+    step: 0, fails: 0, failsBy: {}, name: '', email: '', plan: 'Limited (your choice)',
+    robot: false, emailClicks: 0, emailOk: false, cookieDone: false, rewindDone: false,
+    startT: 0, done: false, milestonesHit: {},
+  });
+  RESTORE.active = false; RESTORE.theater = false;
+  cookieLoops = 0;
+  warned20 = false;
+  $('#card').classList.remove('frozen');
+  $('#failCount').textContent = '0';
+  $('#wasteT').innerHTML = '0<span class="blinkc">:</span>00';
+  setChip('Guest');
+  goTo(0);
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+let modalEscHandler = null;
+function modal(cfg) {
+  const ovl = $('#ovl');
+  $$('.dialog', ovl).forEach(d => d.remove());
+  const d = document.createElement('div');
+  d.className = 'dialog';
+  d.setAttribute('role', 'dialog');
+  d.innerHTML = `
+    ${cfg.noX ? '' : '<button class="x" aria-label="Close">✕</button>'}
+    <h3>${cfg.title}</h3>
+    ${cfg.body ? '<p>' + cfg.body + '</p>' : ''}
+    ${cfg.bar ? '<div class="bigbar' + (cfg.danger ? ' danger' : '') + '"><i></i></div>' : ''}
+    ${cfg.note ? '<div class="smallnote">' + cfg.note + '</div>' : ''}
+    <div class="rowb"></div>`;
+  const row = $('.rowb', d);
+  (cfg.buttons || []).forEach(b => {
+    const btn = document.createElement('button');
+    btn.className = 'btn ' + (b.primary ? 'btn-primary' : 'btn-ghost');
+    btn.textContent = b.label;
+    btn.addEventListener('click', () => { sTick(); close(); if (b.fn) b.fn(); });
+    row.appendChild(btn);
+  });
+  ovl.appendChild(d);
+  ovl.classList.add('on');
+  if (cfg.bar) {
+    const bar = $('.bigbar i', d);
+    requestAnimationFrame(() => {
+      bar.style.transition = 'width ' + (RM ? 120 : (cfg.barMs || 1500)) + 'ms linear';
+      bar.style.width = '100%';
+    });
+  }
+  if (cfg.swapAt) setTimeout(() => { const r = $('.rowb', d); if (r) r.classList.add('swapped'); }, cfg.swapAt);
+  function close() {
+    d.remove();
+    if (!$('.dialog', ovl)) ovl.classList.remove('on');
+    if (modalEscHandler) { document.removeEventListener('keydown', modalEscHandler); modalEscHandler = null; }
+  }
+  const x = $('.x', d);
+  if (x) x.addEventListener('click', () => { sTick(); close(); });
+  if (!cfg.noEsc) {
+    if (modalEscHandler) document.removeEventListener('keydown', modalEscHandler);
+    modalEscHandler = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', modalEscHandler);
+  }
+  const first = $('.btn', row) || x;
+  if (first) setTimeout(() => first.focus(), 60);
+  else { d.tabIndex = -1; setTimeout(() => d.focus(), 60); } // button-less modal must steal focus so Enter can't re-fire the page control behind it
+  return close;
+}
+
+/* ---------------- misc ---------------- */
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && S.startT && !S.done && S.step > 0) {
+    toast("We noticed you left. It's in the file.", { ms: 4000 });
+  }
+});
+
+/* ---------------- boot ---------------- */
+drawStepper();
+setProgress(0);
+goTo(0);
+
+/* dev hook — and hello, console snooper. Attempts are counted. */
+window.__fl = { go: goTo, S, RESTORE, advance };
+</script>
