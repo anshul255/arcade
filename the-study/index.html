@@ -3517,6 +3517,8 @@ window.ESC = {};
         if (AU.ready) AU.latch(-0.3);
       });
     });
+    // while the revealed item sits in the ash, the ember zone must yield the ray to it
+    emberInt.enabled = () => !R.ashKey.visible;
     emberInt.glowMeshes = () => [R.emberBed];
     const ashKeyHit = proxy(0.16, 0.12, 0.2, -3.32, 0.12, 0.14);
     inter(ashKeyHit, 'ashKey', 'A soot-blackened brass key', () => {
@@ -3560,13 +3562,18 @@ window.ESC = {};
         d.chart.updateWorldMatrix(true, false);
         cardHit.position.setFromMatrixPosition(d.card.matrixWorld);
         chartHit.position.setFromMatrixPosition(d.chart.matrixWorld);
+        cardHit.position.y += 0.12; chartHit.position.y += 0.12;
+        // the front's click-zone must follow the drawer between its open/closed positions
+        d.front.updateWorldMatrix(true, false);
+        drawerHit.position.setFromMatrixPosition(d.front.matrixWorld);
       });
       d.open = open;
       d.card.visible = d.chart.visible = true;
       d.body.visible = true;
     }
-    const cardHit = proxy(0.2, 0.1, 0.18, 0, 0, 0);
-    const chartHit = proxy(0.12, 0.1, 0.3, 0, 0, 0);
+    // tall grab zones: they rise above the drawer lip so rays reach them before the front panel
+    const cardHit = proxy(0.22, 0.34, 0.22, 0, 0, 0);
+    const chartHit = proxy(0.22, 0.34, 0.22, 0, 0, 0);
     inter(cardHit, 'card', 'A black-edged funeral card', () => addDoc('card'), { enabled: () => R.drawer.open && !R.drawer.anim }).glowMeshes = () => [R.drawer.card];
     inter(chartHit, 'chart', 'A rolled star chart', () => { addDoc('chart'); caption('Added to your journal.'); }, { enabled: () => R.drawer.open && !R.drawer.anim }).glowMeshes = () => [R.drawer.chart];
     G._drawerProxies = { cardHit, chartHit };
@@ -3577,6 +3584,7 @@ window.ESC = {};
       d.card.updateWorldMatrix(true, false); d.chart.updateWorldMatrix(true, false);
       cardHit.position.setFromMatrixPosition(d.card.matrixWorld);
       chartHit.position.setFromMatrixPosition(d.chart.matrixWorld);
+      cardHit.position.y += 0.12; chartHit.position.y += 0.12;
       d.group.position.z = z0;
     }
 
@@ -3707,17 +3715,18 @@ window.ESC = {};
     dialHit.position.setFromMatrixPosition(R.safe.dial.matrixWorld);
     const RN = ['XII', 'I', 'II', 'III', 'IIII', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
     const TARGET = [9, 3, 7];
-    inter(dialHit, 'safeDial', () => (R.safe.open ? 'The dial, at rest' : `The dial — ${RN[R.safe.pos]} under the arrow`), () => {
+    // dial + handle disable once the safe opens, so rays reach the contents behind the door plane
+    inter(dialHit, 'safeDial', () => `The dial — ${RN[R.safe.pos]} under the arrow`, () => {
       if (R.safe.open) return;
       R.safe.pos = (R.safe.pos + 1) % 12;
       const need = TARGET[S.safeSeq.length];
       if (AU.ready) AU.dialClick(0.3, R.safe.pos === need);
       W.tween(0.12, () => { R.safe.dial.rotation.y = -R.safe.pos / 12 * Math.PI * 2; });
-    }).glowMeshes = () => [R.safe.dial];
+    }, { enabled: () => !R.safe.open }).glowMeshes = () => [R.safe.dial];
     const handleHit = proxy(0.2, 0.12, 0.15, 0, 0, 0);
     R.safe.handle.updateWorldMatrix(true, false);
     handleHit.position.setFromMatrixPosition(R.safe.handle.matrixWorld);
-    inter(handleHit, 'safeHandle', () => (R.safe.open ? 'The safe stands open' : `Commit ${RN[R.safe.pos]} (${S.safeSeq.length}/3 set)`), () => {
+    inter(handleHit, 'safeHandle', () => `Commit ${RN[R.safe.pos]} (${S.safeSeq.length}/3 set)`, () => {
       if (R.safe.open) return;
       S.safeSeq.push(R.safe.pos);
       if (AU.ready) AU.lockClunk(0.3, 1.6);
@@ -3744,7 +3753,7 @@ window.ESC = {};
           caption('The iron heart opens.', 3200);
         }, 1200);
       }
-    }).glowMeshes = () => [R.safe.handle];
+    }, { enabled: () => !R.safe.open }).glowMeshes = () => [R.safe.handle];
     const safeDocHit = proxy(0.3, 0.3, 0.3, 0, 0, 0);
     R.safeContents.updateWorldMatrix(true, false);
     safeDocHit.position.setFromMatrixPosition(R.safeContents.matrixWorld);
@@ -3806,7 +3815,8 @@ window.ESC = {};
     }, { dist: 2.8 }).glowMeshes = () => [R.door.group.children[0]];
 
     /* red herring: rug corner */
-    const rugHit = proxy(0.7, 0.2, 0.7, R.rugCorner.group.position.x, 0.05, R.rugCorner.group.position.z);
+    // offset away from the corner's contents so the small find underneath keeps its own ray
+    const rugHit = proxy(0.5, 0.2, 0.5, R.rugCorner.group.position.x - 0.12, 0.05, R.rugCorner.group.position.z - 0.12);
     inter(rugHit, 'rug', () => (R.rugCorner.folded ? 'Fold the rug back' : 'The rug corner — it has been folded back before'), () => {
       const rc = R.rugCorner;
       if (rc.anim) return;
