@@ -3751,6 +3751,7 @@ window.ESC = {};
           W.tween(1.4, k => { R.safe.door.rotation.y = -k * 1.6; }, null, E.easeInOutSine);
           R.safeContents.visible = true;
           caption('The iron heart opens.', 3200);
+          if (G._globeCheck) setTimeout(G._globeCheck, 2600); // pre-aligned globe releases after the reveal
         }, 1200);
       }
     }, { enabled: () => !R.safe.open }).glowMeshes = () => [R.safe.handle];
@@ -3770,6 +3771,14 @@ window.ESC = {};
     function checkGlobe() {
       // target: lat stop 8 (30N), lon stop 9 (=45W: lon -45 => stop (-45+180)/15 = 9)
       if (R.globe.latStop === 8 && R.globe.lonStop === 9 && !S.p6) {
+        if (!S.p5) {
+          // aligned by fiddling, but the safe's revelation hasn't been found:
+          // the world strains and holds — brute force becomes foreshadowing
+          if (AU.ready) { AU.latch(0.3); AU.recoil(); }
+          W.tween(0.6, k => { R.globe.group.rotation.z = Math.sin(k * Math.PI * 3) * 0.02 * (1 - k); });
+          caption('Deep inside, something strains against its latches — and holds fast.', 3400);
+          return;
+        }
         S.p6 = true;
         setTimeout(() => {
           if (AU.ready) { AU.latch(0.3); AU.latch(0.3); AU.celesta(false); }
@@ -3804,6 +3813,9 @@ window.ESC = {};
       give('ironKey');
       R.ironKey.visible = false;
     }, { enabled: () => R.ironKey.visible, dist: 2.8 }).glowMeshes = () => R.ironKey.children;
+    // if the player pre-aligned the globe before opening the safe, release it the
+    // moment the revelation lands (called from the safe's success branch)
+    G._globeCheck = checkGlobe;
 
     /* door */
     const doorHit = proxy(1.1, 2.3, 0.3, 1.6, 1.2, 2.75);
