@@ -4032,7 +4032,7 @@ window.ESC = {};
         <p class="tag">The estate you were sent to catalogue has decided to keep you past dark.<br>
         Find what the professor hid. The door is listening.</p>
         <button id="enterBtn">Click to enter the study</button>
-        <p class="controls">WASD move &middot; mouse look &middot; click interact &middot; 1-6 hold items &middot; J journal &middot; H hint</p>
+        <p class="controls">WASD move &middot; mouse look &middot; click to interact &middot; press 1-6 to hold an item, then click where to use it &middot; J journal &middot; H hint</p>
         ${LS.completions ? `<p class="controls dim">You have escaped ${LS.completions} time${LS.completions > 1 ? 's' : ''}. Best: ${Math.floor((LS.bestMs || 0) / 60000)}:${String(Math.floor((LS.bestMs || 0) / 1000) % 60).padStart(2, '0')}</p>` : ''}
       </div>`;
     E.$('#enterBtn').addEventListener('click', startGame);
